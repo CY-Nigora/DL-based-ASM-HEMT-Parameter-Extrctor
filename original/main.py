@@ -140,7 +140,8 @@ def save_state(outdir: str, x_scaler: XStandardizer, y_tf: YTransform, cfg: Trai
         'input_meta': meta
     }
     if proxy_meta is not None:
-        dd.update(proxy_meta)
+        dd['proxy'] = proxy_meta['proxy']
+    # print("DEBUG save_state hidden =", cfg.hidden, file=sys.stderr, flush=True)
     with open(os.path.join(outdir, 'transforms.json'), 'w') as f:
         json.dump(dd, f, indent=2)
 
@@ -275,7 +276,8 @@ def run_once(cfg: TrainConfig, diag_cfg: dict, device):
                 'proxy_y_transform': y_tf_p.state_dict(),
                 'proxy': proxy_cfg
             }
-
+            
+    # print("DEBUG run once", cfg.hidden, file=sys.stderr, flush=True)
     save_state(run_dir, x_scaler, y_tf, cfg, meta, proxy_meta)
 
     x_mu_c  = torch.tensor(x_scaler.mean, device=device, dtype=torch.float32)
@@ -625,6 +627,7 @@ def parse_args():
         z_sample_mode=args.z_sample_mode,
         dropout_val=args.dropout_val, dropout_test=args.dropout_test, dropout_infer=args.dropout_infer
     )
+    # print("DEBUG cfg.hidden =", cfg.hidden, file=sys.stderr, flush=True)
     diag_cfg = {'enable': args.diag, 'max_samples': args.diag_max_samples, 'knn_k': args.diag_knn_k}
     return cfg, args, diag_cfg
 
