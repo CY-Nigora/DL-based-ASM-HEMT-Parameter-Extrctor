@@ -156,9 +156,9 @@ def load_and_prepare_dual(data_path: str, cfg, PARAM_NAMES, PARAM_RANGE):
         X_iv = f['X_iv'][...]
         X_gm = f['X_gm'][...]
         Y    = f['Y'][...]
-    # ---- FIX: make Y 2D (N,Dy) ----
+    # (N,D,1) -> (N,D)
     if Y.ndim == 3 and Y.shape[-1] == 1:
-        Y = Y[..., 0]        # (N,Dy,1) -> (N,Dy)
+        Y = Y[..., 0]
     Y = Y.astype(np.float32)
 
     N = X_iv.shape[0]
@@ -204,16 +204,10 @@ def load_and_prepare_dual(data_path: str, cfg, PARAM_NAMES, PARAM_RANGE):
     return train_ds, val_ds, test_ds, x_scaler, y_tf, (tr_idx, va_idx, te_idx), X_concat, Y, meta
 
 def make_loaders(train_ds, val_ds, test_ds, batch_size: int, num_workers: int):
-    train_loader = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True,
-        num_workers=num_workers, pin_memory=True, drop_last=True  # <- added
-    )
-    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
-                              num_workers=num_workers, pin_memory=True)
-    test_loader  = DataLoader(test_ds,  batch_size=batch_size, shuffle=False,
-                              num_workers=num_workers, pin_memory=True)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=num_workers, pin_memory=True)
+    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+    test_loader  = DataLoader(test_ds,  batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
     return train_loader, val_loader, test_loader
-
 
 def make_meas_loader_dual(meas_h5: str, x_scaler: XStandardizer, batch_size: int, num_workers: int = 0,
                           iv_shape=(7,121), gm_shape=(10,71)):
@@ -223,6 +217,8 @@ def make_meas_loader_dual(meas_h5: str, x_scaler: XStandardizer, batch_size: int
         Xm_gm = f['X_gm'][...]
 
     Nm = Xm_iv.shape[0]
+    if Nm == 0:
+        return None, 0
 
     Xm_concat = np.concatenate([Xm_iv.reshape(Nm,-1), Xm_gm.reshape(Nm,-1)], axis=1).astype(np.float32)
     Xm_std = x_scaler.transform(Xm_concat)
@@ -234,5 +230,5 @@ def make_meas_loader_dual(meas_h5: str, x_scaler: XStandardizer, batch_size: int
     ds = DualMeasDataset(Xm_iv_std, Xm_gm_std)
     bs = min(batch_size, Nm)
     loader = DataLoader(ds, batch_size=bs, shuffle=True, num_workers=num_workers,
-                        pin_memory=True, drop_last=False)  
+                        pin_memory=True, drop_last=False)
     return loader, Nm

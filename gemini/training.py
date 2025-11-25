@@ -8,6 +8,59 @@ from regulations import (
     _smooth_l1_per_sample
 )
 
+# ============================================================
+# Diagnostics Helpers (Ported from Original)
+# ============================================================
+class CriterionWrapper:
+    def __init__(self, beta: float = 0.02):
+        self.crit = nn.SmoothL1Loss(beta=beta, reduction="none")
+
+    def __call__(self, y_hat, y, return_per_elem: bool = False):
+        per_elem = self.crit(y_hat, y)
+        if return_per_elem:
+            return per_elem
+        return per_elem.mean()
+
+def diag_processing(
+    diag_cfg: dict, diag_count: int,
+    y_c, y_hat_post, y_hat_prior,
+    xhat_std_sim_prior=None,
+    # 根据需要可以添加更多参数，这里为了兼容调用尽量简化
+):
+    """
+    Minimal implementation of diag processing to prevent crash.
+    Ideally, this should log KNN distances and Jacobian norms as in Original.
+    """
+    diag_rows = []
+    diag_max = diag_cfg.get('max_samples', 256)
+    
+    if diag_count >= diag_max:
+        return diag_rows, diag_count
+
+    B = y_c.size(0)
+    # 简单示例：记录每个样本的重构误差
+    diff_post = (y_hat_post - y_c).abs().mean(dim=1).detach().cpu().tolist()
+    diff_prior = (y_hat_prior - y_c).abs().mean(dim=1).detach().cpu().tolist()
+    
+    for i in range(B):
+        if diag_count >= diag_max: 
+            break
+        row = {
+            "idx": diag_count,
+            "sup_post": diff_post[i],
+            "sup_prior": diff_prior[i]
+        }
+        # 如果有 prior cycle consistency 的中间结果
+        if xhat_std_sim_prior is not None:
+            # 这里 xhat_std_sim_prior 需要和 x_gt 比较，暂略
+            pass
+            
+        diag_rows.append(row)
+        diag_count += 1
+        
+    return diag_rows, diag_count
+
+
 # ----------------------------
 # Helper: Single Branch Cycle Loss
 # ----------------------------
@@ -204,8 +257,11 @@ def train_one_epoch_dual(
             loss_cyc_meas = l_iv_m + l_gm_m
 
         # --- Trust Loss ---
-        loss_trust = L_trust(y_hat_post, y_hat_prior, yref_proxy_norm, 
-                             trust_alpha, trust_alpha_meas, trust_tau)
+        loss_trust = L_trust(
+            y_hat_post, y_hat_prior, yref_proxy_norm, 
+            trust_alpha, trust_alpha_meas, trust_tau,
+            ref_batch=trust_ref_batch 
+        )
 
         # Total Loss
         loss = (loss_sup + kl_beta * loss_kl + loss_bnd + 

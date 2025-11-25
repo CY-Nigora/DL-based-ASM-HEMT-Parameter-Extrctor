@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from contextlib import contextmanager
 
+
 from models import _MLPBlock
 from data import XStandardizer, YTransform
 
@@ -158,11 +159,99 @@ def train_proxy_part(
                                "torchscript": os.path.basename(ts_path)}}
         return model, best_path, ts_path, proxy_cfg
 
-def train_proxy_iv(*args, **kwargs):
-    return train_proxy_part("proxy_iv", *args, **kwargs)
+# ============================================================
+# Training utility (shared by IV/GM proxy)
+# ============================================================
+def _train_proxy_generic(
+    proxy: nn.Module,
+    y_norm: torch.Tensor,
+    x_flat_std: torch.Tensor,
+    batch_size: int,
+    lr: float,
+    max_epochs: int,
+    device: torch.device,
+    weight_decay: float = 1e-6,  # [新增]
+    beta: float = 0.02,          # [新增]
+):
+    proxy = proxy.to(device)
+    ds = TensorDataset(y_norm, x_flat_std)
+    dl = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False)
 
-def train_proxy_gm(*args, **kwargs):
-    return train_proxy_part("proxy_gm", *args, **kwargs)
+    # [修改] 使用传入的 weight_decay
+    opt = optim.Adam(proxy.parameters(), lr=lr, weight_decay=weight_decay)
+    # [修改] 使用传入的 beta
+    crit = nn.SmoothL1Loss(beta=beta)
+
+    proxy.train()
+    for epoch in range(max_epochs):
+        for y_b, x_b in dl:
+            y_b = y_b.to(device)
+            x_b = x_b.to(device)
+
+            pred = proxy(y_b)
+            loss = crit(pred, x_b)
+
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+    return proxy
+
+
+# ============================================================
+# Public training APIs
+# ============================================================
+def train_proxy_iv(
+    y_norm_iv: torch.Tensor,
+    x_iv_flat_std: torch.Tensor,
+    hidden: int,
+    batch_size: int,
+    lr: float,
+    epochs: int,
+    device: torch.device,
+    weight_decay: float = 1e-6, # [新增]
+    beta: float = 0.02,         # [新增]
+    # 兼容性参数 (seed, patience 等在 main 中处理了，这里主要接收训练超参)
+    **kwargs
+):
+    """
+    Train IV proxy: y_norm → IV_flat_std
+    """
+    Dy = y_norm_iv.size(1)
+    Dx = x_iv_flat_std.size(1)
+    proxy = ProxyMLP(Dy, hidden, Dx)
+    # [修改] 传递新增参数
+    return _train_proxy_generic(
+        proxy, y_norm_iv, x_iv_flat_std, 
+        batch_size, lr, epochs, device, 
+        weight_decay=weight_decay, beta=beta
+    )
+
+
+def train_proxy_gm(
+    y_norm_gm: torch.Tensor,
+    x_gm_flat_std: torch.Tensor,
+    hidden: int,
+    batch_size: int,
+    lr: float,
+    epochs: int,
+    device: torch.device,
+    weight_decay: float = 1e-6, # [新增]
+    beta: float = 0.02,         # [新增]
+    **kwargs
+):
+    """
+    Train GM proxy: y_norm → GM_flat_std
+    """
+    Dy = y_norm_gm.size(1)
+    Dx = x_gm_flat_std.size(1)
+    proxy = ProxyMLP(Dy, hidden, Dx)
+    # [修改] 传递新增参数
+    return _train_proxy_generic(
+        proxy, y_norm_gm, x_gm_flat_std, 
+        batch_size, lr, epochs, device, 
+        weight_decay=weight_decay, beta=beta
+    )
 
 def load_proxy_artifacts_dual(run_dir: str, device):
     """

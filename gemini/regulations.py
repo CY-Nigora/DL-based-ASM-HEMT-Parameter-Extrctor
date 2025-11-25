@@ -155,20 +155,17 @@ def NormCalc_cyc_meas(y_hat_32, proxy_func, y_tf, y_tf_proxy, crit,
 # 3. Trust Region Loss (KNN based)
 # ==========
 def L_trust(y_hat_post, y_hat_prior, yref_proxy_norm,
-            trust_alpha: float, trust_alpha_meas: float, trust_tau: float):
+            trust_alpha: float, trust_alpha_meas: float, trust_tau: float,
+            ref_batch: int = 2048):  # [新增参数 ref_batch]
     """
     Penalizes generated Y if it is too far from the manifold of Y_train (proxy training data).
     """
     if yref_proxy_norm is None:
         return 0.0
 
-    # We assume y_hat is already in proxy-compatible normalization or close to it.
-    # In `training.py`, y_hat_post is output of decoder (standardized Y).
-    # If Y_train_norm (yref) is also standardized similarly, we can compare directly.
-    
     # Subsample ref to save memory
     N_ref = yref_proxy_norm.size(0)
-    n_sub = min(N_ref, 2048)
+    n_sub = min(N_ref, ref_batch)  # [修改] 使用 ref_batch 替代硬编码 2048
     idx = torch.randint(0, N_ref, (n_sub,), device=yref_proxy_norm.device)
     ref_sub = yref_proxy_norm.index_select(0, idx)
 
