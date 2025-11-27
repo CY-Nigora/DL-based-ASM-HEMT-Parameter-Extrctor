@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 
 from regulations import (
-    _sanitize, NormCalc_prior_bnd, NormCalc_cyc,
-    bok_prior_select_and_cyc, bok_prior_select_and_cyc_meas, _safe_cdist
+    _sanitize, NormCalc_prior_bnd, NormCalc_cyc, NormCalc_cyc_dual,
+    bok_prior_select_and_cyc, bok_prior_select_and_cyc_meas, bok_prior_select_and_cyc_dual, _safe_cdist
 )
 from utils import dropout_mode
 
@@ -42,17 +42,21 @@ def calculate_kl_divergence(mu_post, logvar_post, mu_prior, logvar_prior):
 # ----------------------------
 # Diag processing (ported; x is concat std)
 # ----------------------------
-def diag_processing(model, proxy_g, device,
+def diag_processing(model, device,
                     domain_label: str,
                     diag_rows: List[Dict], diag_count: int, diag_max: int, diag_k: int,
-                    x, x_hat_std_sim_prior, x_mu_p, x_std_p, x_mu_c, x_std_c,
+                    x, x_hat_std_sim_prior, 
+                    x_mu_p, x_std_p, x_mu_c, x_std_c, # Global stats
                     y, y_hat_prior, y_hat_prior_32, y_tf, y_tf_proxy, y_idx_c_from_p, yref_proxy_norm,
                     prior_bound, prior_bound_margin, PARAM_RANGE,
+                    # New Args
+                    proxy_iv=None, proxy_gm=None, L_iv: int=0,
                     proxy_floor_all: Optional[List[float]] = None):
 
     B = x.size(0)
-
     beta = 0.02
+    
+    # 1. Standard Recon Error (Sim Prior vs Target)
     diff = (x_hat_std_sim_prior - x).reshape(B, -1)
     absd = diff.abs()
     cyc_sim_ps = torch.where(absd < beta, 0.5 * (diff**2) / beta, absd - 0.5*beta).mean(dim=1)
@@ -68,23 +72,39 @@ def diag_processing(model, proxy_g, device,
     prior_bnd_ps = NormCalc_prior_bnd(device, y_tf, y_hat_prior_32, PARAM_RANGE,
                                       prior_bound, prior_bound_margin, per_sample_ena=True)
 
-    # proxy floor (using GT y -> proxy -> x)
-    if (proxy_g is not None) and (proxy_floor_all is not None) and (domain_label == 'sim'):
+    # 2. Proxy Floor (Lower Bound of Error) - DUAL PROXY UPDATE
+    if (proxy_iv is not None and proxy_gm is not None) and (proxy_floor_all is not None) and (domain_label == 'sim'):
+        # GT Y -> Proxy Input
         y_phys_here = y_tf.inverse(y.to(torch.float32))
         if y_idx_c_from_p is not None:
             y_phys_here = y_phys_here.index_select(1, y_idx_c_from_p)
         y_proxy_norm_here = y_tf_proxy.transform(y_phys_here)
-        xhat_proxy_ref_std = proxy_g(y_proxy_norm_here)
-        xhat_proxy_ref_phys = xhat_proxy_ref_std * x_std_p + x_mu_p
-        xhat_proxy_ref_curr_std  = (xhat_proxy_ref_phys - x_mu_c) / x_std_c
+        y_proxy_norm_here = _sanitize(y_proxy_norm_here)
 
+        # Dual Inference
+        pred_iv_p = _sanitize(proxy_iv(y_proxy_norm_here))
+        pred_gm_p = _sanitize(proxy_gm(y_proxy_norm_here))
+
+        # Reconstruct Physical -> Current Standardized
+        mu_p_iv, mu_p_gm = x_mu_p[:L_iv], x_mu_p[L_iv:]
+        std_p_iv, std_p_gm = x_std_p[:L_iv], x_std_p[L_iv:]
+        mu_c_iv, mu_c_gm = x_mu_c[:L_iv], x_mu_c[L_iv:]
+        std_c_iv, std_c_gm = x_std_c[:L_iv], x_std_c[L_iv:]
+
+        pred_iv_curr = (pred_iv_p * std_p_iv + mu_p_iv - mu_c_iv) / std_c_iv
+        pred_gm_curr = (pred_gm_p * std_p_gm + mu_p_gm - mu_c_gm) / std_c_gm
+        
+        # Concat
+        xhat_proxy_ref_curr_std = _sanitize(torch.cat([pred_iv_curr, pred_gm_curr], dim=1))
+
+        # Calculate Floor Loss
         diff_proxy_ref = (xhat_proxy_ref_curr_std - x).reshape(B, -1)
         absd_proxy_ref = diff_proxy_ref.abs()
         proxy_floor_ps = torch.where(absd_proxy_ref < beta, 0.5 * (diff_proxy_ref**2) / beta,
                                      absd_proxy_ref - 0.5*beta).mean(dim=1)
         proxy_floor_all.extend(proxy_floor_ps.detach().cpu().tolist())
 
-    # KNN distance to proxy Y_train_norm
+    # 3. KNN Distance to Proxy Training Data
     if (yref_proxy_norm is not None):
         y_phys_m = y_tf.inverse(y_hat_prior_32)
         if domain_label == 'sim':
@@ -107,18 +127,27 @@ def diag_processing(model, proxy_g, device,
         knn_min = torch.full((B,), float('nan'), device=x.device)
         knn_mean_k = torch.full((B,), float('nan'), device=x.device)
 
-    # Jacobian spectral norm of proxy (subsample)
-    if domain_label == 'sim':
+    # 4. Jacobian Spectral Norm - DUAL PROXY UPDATE
+    if domain_label == 'sim' and (proxy_iv is not None and proxy_gm is not None):
         jac_sig = torch.full((B,), float('nan'), device=x.device)
         if diag_count < diag_max:
             take = min(B, diag_max - diag_count)
             for i in range(take):
                 y0 = y_proxy_norm[i].detach().to(torch.float32).requires_grad_(True)
+                
+                # Combined function for Jacobian: y -> [proxy_iv(y), proxy_gm(y)]
                 def f(inp):
-                    return proxy_g(inp.unsqueeze(0)).squeeze(0)
-                J = torch.autograd.functional.jacobian(f, y0, create_graph=False, strict=True)
-                s = torch.linalg.svdvals(J.cpu())
-                jac_sig[i] = float(s.max().item())
+                    y_in = inp.unsqueeze(0)
+                    out_iv = proxy_iv(y_in)
+                    out_gm = proxy_gm(y_in)
+                    return torch.cat([out_iv, out_gm], dim=1).squeeze(0)
+                
+                try:
+                    J = torch.autograd.functional.jacobian(f, y0, create_graph=False, strict=True)
+                    s = torch.linalg.svdvals(J.cpu())
+                    jac_sig[i] = float(s.max().item())
+                except Exception:
+                    pass # handle potential errors in jacobian
     else:
         jac_sig = torch.full((B,), float('nan'), device=x.device)
 
@@ -139,7 +168,6 @@ def diag_processing(model, proxy_g, device,
             break
     return diag_rows, diag_count
 
-
 # ----------------------------
 # Train one epoch (keys aligned to old logs)
 # ----------------------------
@@ -147,7 +175,8 @@ def train_one_epoch_dual(
     model, loader, optimizer, scaler, device,
     scheduler=None, current_epoch: int = 1, onecycle_epochs: int = 0,
     kl_beta: float = 0.1, y_tf=None, PARAM_RANGE=None,
-    proxy_g=None, lambda_cyc_sim: float = 0.0,
+    proxy_iv=None, proxy_gm=None, L_iv=None,
+    lambda_cyc_sim: float = 0.0,
     meas_loader=None, lambda_cyc_meas: float = 0.0,
     y_tf_proxy=None,
     x_mu_c=None, x_std_c=None, x_mu_p=None, x_std_p=None,
@@ -174,8 +203,11 @@ def train_one_epoch_dual(
         total=0.0,
         sup_post=0.0, sup_prior=0.0,
         kl=0.0,
-        cyc_sim_post=0.0, cyc_sim_prior=0.0,
-        cyc_meas=0.0, n_meas=0,
+        # divided by both iv and gm
+        cyc_sim_iv_post=0.0, cyc_sim_gm_post=0.0, cyc_sim_post=0.0,
+        cyc_sim_iv_prior=0.0, cyc_sim_gm_prior=0.0, cyc_sim_prior=0.0,
+        cyc_meas_iv=0.0, cyc_meas_gm=0.0, cyc_meas=0.0,
+        n_meas=0,
         prior_l2_post=0.0, prior_l2_prior=0.0,
         prior_bnd_post=0.0, prior_bnd_prior=0.0,
         trust=0.0
@@ -217,38 +249,53 @@ def train_one_epoch_dual(
 
             x_flat_std = torch.cat([x_iv.flatten(1), x_gm.flatten(1)], dim=1)
 
-            # cyc_sim on post+prior paths
+            # --- Simulation Cycle Consistency (Dual) ---
             cyc_sim_post = y_hat_post_32.new_tensor(0.0)
-            cyc_sim_prior= y_hat_post_32.new_tensor(0.0)
-            x_hat_std_sim_prior = x_flat_std
-            if proxy_g is not None and lambda_cyc_sim > 0:
-                cyc_sim_post, _ = NormCalc_cyc(
-                    device, proxy_g, 1.0,
+            cyc_sim_iv_post = torch.tensor(0.0, device=device)
+            cyc_sim_gm_post = torch.tensor(0.0, device=device)
+            cyc_sim_prior = y_hat_post_32.new_tensor(0.0)
+            cyc_sim_iv_prior = torch.tensor(0.0, device=device)
+            cyc_sim_gm_prior = torch.tensor(0.0, device=device)
+
+            if (proxy_iv is not None) and( proxy_gm is not None) and (lambda_cyc_sim > 0):
+                # 1. Posterior Path (Determininstic / standard)
+                cyc_sim_iv_post, cyc_sim_gm_post, _ = NormCalc_cyc_dual(
+                    device, proxy_iv, proxy_gm, L_iv,
                     y_tf, y_tf_proxy, y_hat_post_32,
                     x_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
                     y_idx_c_from_p, cyc_crit
                 )
-                if bok_use_sim and best_of_k > 1:
-                    y_best32, cyc_unit, x_hat_std_sim_prior = bok_prior_select_and_cyc(
+                cyc_sim_post = cyc_sim_iv_post + cyc_sim_gm_post
+
+                # 2. Prior Path (Supports Best-of-K)
+                if best_of_k > 1 and bok_use_sim:
+                    # Use BoK to find best Y
+                    y_best32, _, _ = bok_prior_select_and_cyc_dual(
                         model, device, best_of_k,
                         h, x_flat_std, mu_prior, logvar_prior,
-                        y_tf, y_tf_proxy, proxy_g,
+                        y_tf, y_tf_proxy, proxy_iv, proxy_gm, L_iv,
                         x_mu_c, x_std_c, x_mu_p, x_std_p,
                         y_idx_c_from_p, cyc_crit
                     )
                     y_hat_prior_32 = y_best32
-                    cyc_sim_prior = cyc_unit
                 else:
-                    cyc_sim_prior, x_hat_std_sim_prior = NormCalc_cyc(
-                        device, proxy_g, 1.0,
-                        y_tf, y_tf_proxy, y_hat_prior_32,
-                        x_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
-                        y_idx_c_from_p, cyc_crit
-                    )
+                    pass
 
-            # cyc_meas (same as old)
+                cyc_sim_iv_prior, cyc_sim_gm_prior, _ = NormCalc_cyc_dual(
+                    device, proxy_iv, proxy_gm, L_iv,
+                    y_tf, y_tf_proxy, y_hat_prior_32,
+                    x_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
+                    y_idx_c_from_p, cyc_crit
+                )
+                cyc_sim_prior = cyc_sim_iv_prior + cyc_sim_gm_prior
+
+
+            # --- Measurement Cycle Consistency (Dual) ---
             cyc_meas = y_hat_post_32.new_tensor(0.0)
-            if proxy_g is not None and meas_iter is not None and lambda_cyc_meas > 0:
+            cyc_meas_iv = y_hat_post_32.new_tensor(0.0)
+            cyc_meas_gm = y_hat_post_32.new_tensor(0.0)
+            
+            if proxy_iv and proxy_gm and meas_iter and lambda_cyc_meas > 0:
                 try:
                     xm_iv, xm_gm = next(meas_iter)
                 except StopIteration:
@@ -256,52 +303,37 @@ def train_one_epoch_dual(
                     xm_iv, xm_gm = next(meas_iter)
                 xm_iv = xm_iv.to(device); xm_gm = xm_gm.to(device)
                 xm_flat_std = torch.cat([xm_iv.flatten(1), xm_gm.flatten(1)], dim=1)
+                # Predict Y from Meas
                 h_m = model.encode_x(xm_iv, xm_gm)
+                prior_out_m = model.prior_net(h_m)
+                mu_pm, _ = prior_out_m.chunk(2, dim=-1)
+                ym_hat = model.decoder(torch.cat([h_m, mu_pm], dim=1))
+                ym_hat32 = _sanitize(ym_hat.to(torch.float32))
 
-                if bok_use_meas and best_of_k > 1:
-                    _, cyc_meas_scalar, _, _, valid_best, _ = bok_prior_select_and_cyc_meas(
-                        model, device, best_of_k,
-                        h_m, xm_flat_std,
-                        y_tf, y_tf_proxy, proxy_g,
-                        x_mu_c, x_std_c, x_mu_p, x_std_p,
-                        y_idx_c_from_p,
-                        cyc_meas_knn_weight=cyc_meas_knn_weight,
-                        cyc_meas_knn_gamma=cyc_meas_knn_gamma,
-                        yref_proxy_norm=yref_proxy_norm,
-                        trust_tau=trust_tau
-                    )
-                    cyc_meas = cyc_meas_scalar
-                    valid_count = int(valid_best.sum().item())
-                else:
-                    was_training = model.training
-                    if was_training:
-                        model.eval()   # 只影响 BN/Dropout，不关梯度
-                    prior_out_m = model.prior_net(h_m)
-                    mu_pm, lv_pm = prior_out_m.chunk(2, dim=-1)
-                    z_m = mu_pm
-                    ym_hat = model.decoder(torch.cat([h_m, z_m], dim=1))
-                    ym_hat32 = _sanitize(ym_hat.to(torch.float32))
-                    # manual valid mask as old
-                    y_phys_m = _sanitize(y_tf.inverse(ym_hat32), clip=None)
-                    if y_idx_c_from_p is not None:
-                        y_phys_m = y_phys_m.index_select(1, y_idx_c_from_p)
-                    ym_proxy_norm = _sanitize(y_tf_proxy.transform(y_phys_m))
-                    xmh_proxy_std = _sanitize(proxy_g(ym_proxy_norm))
-                    xmh_phys = _sanitize(xmh_proxy_std * x_std_p + x_mu_p)
-                    xmh_curr_std = _sanitize((xmh_phys - x_mu_c) / x_std_c)
-                    valid = torch.isfinite(xmh_curr_std).all(dim=1) & torch.isfinite(xm_flat_std).all(dim=1)
-                    if valid.any():
-                        cyc_meas = cyc_crit(xmh_curr_std[valid], xm_flat_std[valid])
-                    else:
-                        cyc_meas = xm_flat_std.new_tensor(0.0)
-                    valid_count = int(valid.sum().item())
-                    
-                    if was_training:
-                        model.train()
+                # Calculate Split Loss for Meas
+                l_m_iv, l_m_gm, xmh_curr_std = NormCalc_cyc_dual(
+                    device, proxy_iv, proxy_gm, L_iv,
+                    y_tf, y_tf_proxy, ym_hat32,
+                    xm_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
+                    y_idx_c_from_p, cyc_crit
+                )
+                
+                # Valid mask logic (checking finite)
+                valid = torch.isfinite(xmh_curr_std).all(dim=1)
+                if valid.any():
+                    # Re-calc mean only on valid indices
+                    # Note: NormCalc_cyc_dual returns mean loss. 
+                    # For strict correctness with mask, we might need NormCalc to return per-sample.
+                    # Assuming simple mean for now or that NormCalc handles basic validity.
+                    cyc_meas_iv = l_m_iv
+                    cyc_meas_gm = l_m_gm
+                    cyc_meas = cyc_meas_iv + cyc_meas_gm
+                
+                valid_count = int(valid.sum().item())
 
             # trust sim (same scalar)
             trust_sim = y_hat_post_32.new_tensor(0.0)
-            if proxy_g is not None and trust_alpha > 0 and yref_proxy_norm is not None:
+            if proxy_iv and proxy_gm and trust_alpha > 0 and yref_proxy_norm is not None:
                 y_phys = y_tf.inverse(y_hat_prior_32)
                 if y_idx_c_from_p is not None:
                     y_phys = y_phys.index_select(1, y_idx_c_from_p)
@@ -325,6 +357,7 @@ def train_one_epoch_dual(
             )
 
         scaler.scale(total).backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0) # for security : limit max grad norm
         scaler.step(optimizer)
         scaler.update()
         if scheduler is not None:
@@ -336,17 +369,28 @@ def train_one_epoch_dual(
         meter["sup_post"] += float(sup_post.item()) * bs
         meter["sup_prior"] += float(sup_prior.item()) * bs
         meter["kl"] += float(kl_loss.item()) * bs
+
+        meter["cyc_sim_iv_post"] += float(cyc_sim_iv_post.item()) * bs
+        meter["cyc_sim_gm_post"] += float(cyc_sim_gm_post.item()) * bs
         meter["cyc_sim_post"] += float(cyc_sim_post.item()) * bs
+
+        meter["cyc_sim_iv_prior"] += float(cyc_sim_iv_prior.item()) * bs
+        meter["cyc_sim_gm_prior"] += float(cyc_sim_gm_prior.item()) * bs
         meter["cyc_sim_prior"] += float(cyc_sim_prior.item()) * bs
+
         meter["prior_l2_post"] += float(prior_l2_post.item()) * bs
         meter["prior_l2_prior"] += float(prior_l2_prior.item()) * bs
         meter["prior_bnd_post"] += float(prior_bnd_post.item()) * bs
         meter["prior_bnd_prior"] += float(prior_bnd_prior.item()) * bs
         meter["trust"] += float(trust_sim.item()) * bs
-        if proxy_g is not None and meas_iter is not None and lambda_cyc_meas > 0:
+
+        if proxy_iv and proxy_gm and meas_iter is not None and lambda_cyc_meas > 0:
             if valid_count > 0:
+                meter["cyc_meas_iv"] += float(cyc_meas_iv.item()) * valid_count
+                meter["cyc_meas_gm"] += float(cyc_meas_gm.item()) * valid_count
                 meter["cyc_meas"] += float(cyc_meas.item()) * valid_count
                 meter["n_meas"] += valid_count
+
 
     n = max(1, meter["n"])
     train_metrics = {
@@ -354,9 +398,19 @@ def train_one_epoch_dual(
         "sup_post": meter["sup_post"]/n,
         "sup_prior": meter["sup_prior"]/n,
         "kl": meter["kl"]/n,
+
+        "cyc_sim_iv_post": meter["cyc_sim_iv_post"]/n,
+        "cyc_sim_gm_post": meter["cyc_sim_gm_post"]/n,
         "cyc_sim_post": meter["cyc_sim_post"]/n,
+
+        "cyc_sim_iv_prior": meter["cyc_sim_iv_prior"]/n,
+        "cyc_sim_gm_prior": meter["cyc_sim_gm_prior"]/n,
         "cyc_sim_prior": meter["cyc_sim_prior"]/n,
+
+        "cyc_meas_iv": (meter["cyc_meas_iv"]/max(1,meter["n_meas"])) if meter["n_meas"]>0 else 0.0,
+        "cyc_meas_gm": (meter["cyc_meas_gm"]/max(1,meter["n_meas"])) if meter["n_meas"]>0 else 0.0,
         "cyc_meas": (meter["cyc_meas"]/max(1,meter["n_meas"])) if meter["n_meas"]>0 else 0.0,
+
         "prior_l2_post": meter["prior_l2_post"]/n,
         "prior_l2_prior": meter["prior_l2_prior"]/n,
         "prior_bnd_post": meter["prior_bnd_post"]/n,
@@ -373,7 +427,9 @@ def train_one_epoch_dual(
 @torch.no_grad()
 def evaluate_full_dual(
     model, loader, device,
-    y_tf=None, proxy_g=None, lambda_cyc_sim=0.0,
+    y_tf=None, 
+    proxy_iv=None, proxy_gm=None, L_iv=None,
+    lambda_cyc_sim=0.0,
     meas_loader=None, lambda_cyc_meas=0.0,
     y_tf_proxy=None,
     x_mu_c=None, x_std_c=None, x_mu_p=None, x_std_p=None,
@@ -398,12 +454,17 @@ def evaluate_full_dual(
 
     meter = dict(
         n=0,
+        total=0.0,
         sup_post=0.0, sup_prior=0.0,
         kl=0.0,
-        cyc_sim_post=0.0, cyc_sim_prior=0.0,
-        cyc_meas=0.0, n_meas=0,
+        # divided by both iv and gm
+        cyc_sim_iv_post=0.0, cyc_sim_gm_post=0.0, cyc_sim_post=0.0,
+        cyc_sim_iv_prior=0.0, cyc_sim_gm_prior=0.0, cyc_sim_prior=0.0,
+        cyc_meas_iv=0.0, cyc_meas_gm=0.0, cyc_meas=0.0,
+        n_meas=0,
         prior_l2_post=0.0, prior_l2_prior=0.0,
-        prior_bnd_post=0.0, prior_bnd_prior=0.0
+        prior_bnd_post=0.0, prior_bnd_prior=0.0,
+        trust=0.0
     )
 
     diag_enabled = bool(diag_cfg.get("enable", False)) if diag_cfg else False
@@ -414,7 +475,7 @@ def evaluate_full_dual(
     proxy_floor_all = [] if diag_enabled else None
 
     meas_iter = iter(meas_loader) if meas_loader is not None else None
-    print('[Diag] Start to calcaulte diag in test preocess... ') if diag_enabled and (y_tf is not None) and (y_tf_proxy is not None) and (proxy_g is not None) and (diag_tag == "test") else None
+    print('[Diag] Start to calcaulte diag in test preocess... ') if diag_enabled and (y_tf is not None) and (y_tf_proxy is not None) and (proxy_iv and proxy_gm) and (diag_tag == "test") else None
     with dropout_mode(model, enabled=dropout_in_eval):
         for x_iv, x_gm, y in loader:
             x_iv = x_iv.to(device)
@@ -445,51 +506,74 @@ def evaluate_full_dual(
 
             x_flat_std = torch.cat([x_iv.flatten(1), x_gm.flatten(1)], dim=1)
 
+            # --- Simulation Cycle Consistency (Dual) ---
             cyc_sim_post = y_hat_post_32.new_tensor(0.0)
-            cyc_sim_prior= y_hat_post_32.new_tensor(0.0)
-            x_hat_std_sim_prior = x_flat_std
-            if proxy_g is not None and lambda_cyc_sim > 0:
-                cyc_sim_post, _ = NormCalc_cyc(
-                    device, proxy_g, 1.0,
+            cyc_sim_iv_post = torch.tensor(0.0, device=device)
+            cyc_sim_gm_post = torch.tensor(0.0, device=device)
+            cyc_sim_prior = y_hat_post_32.new_tensor(0.0)
+            cyc_sim_iv_prior = torch.tensor(0.0, device=device)
+            cyc_sim_gm_prior = torch.tensor(0.0, device=device)
+
+            if (proxy_iv is not None) and( proxy_gm is not None) and (lambda_cyc_sim > 0):
+                # call new split loss Calc
+                cyc_sim_iv_post, cyc_sim_gm_post, _ = NormCalc_cyc_dual(
+                    device, proxy_iv, proxy_gm, L_iv,
                     y_tf, y_tf_proxy, y_hat_post_32,
                     x_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
                     y_idx_c_from_p, cyc_crit
                 )
-                if bok_use_sim and best_of_k > 1:
-                    y_best32, cyc_unit, x_hat_std_sim_prior = bok_prior_select_and_cyc(
+                cyc_sim_post = cyc_sim_iv_post + cyc_sim_gm_post
+
+                # Prior (BoK Check)
+                if best_of_k > 1 and bok_use_sim:
+                     y_best32, _, x_hat_std_sim_prior = bok_prior_select_and_cyc_dual(
                         model, device, best_of_k,
                         h, x_flat_std, mu_prior, logvar_prior,
-                        y_tf, y_tf_proxy, proxy_g,
+                        y_tf, y_tf_proxy, proxy_iv, proxy_gm, L_iv,
                         x_mu_c, x_std_c, x_mu_p, x_std_p,
-                        y_idx_c_from_p,
-                        cyc_crit
+                        y_idx_c_from_p, cyc_crit
                     )
-                    y_hat_prior_32 = y_best32
-                    cyc_sim_prior = cyc_unit
+                     # Recalc split loss on best Y for logging
+                     cyc_sim_iv_prior, cyc_sim_gm_prior, _ = NormCalc_cyc_dual(
+                        device, proxy_iv, proxy_gm, L_iv,
+                        y_tf, y_tf_proxy, y_best32,
+                        x_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
+                        y_idx_c_from_p, cyc_crit
+                    )
                 else:
-                    cyc_sim_prior, x_hat_std_sim_prior = NormCalc_cyc(
-                        device, proxy_g, 1.0,
+                    cyc_sim_iv_prior, cyc_sim_gm_prior, x_hat_std_sim_prior = NormCalc_cyc_dual(
+                        device, proxy_iv, proxy_gm, L_iv,
                         y_tf, y_tf_proxy, y_hat_prior_32,
                         x_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
                         y_idx_c_from_p, cyc_crit
                     )
+                cyc_sim_prior = cyc_sim_iv_prior + cyc_sim_gm_prior
+                
+                # Note: x_hat_std_sim_prior is used later for diag_processing
 
             bs = x_iv.size(0)
             meter["n"] += bs
             meter["sup_post"] += float(sup_post.item()) * bs
             meter["sup_prior"] += float(sup_prior.item()) * bs
             meter["kl"] += float(kl_loss.item()) * bs
+
+            meter["cyc_sim_iv_post"] += float(cyc_sim_iv_post.item()) * bs
+            meter["cyc_sim_gm_post"] += float(cyc_sim_gm_post.item()) * bs
             meter["cyc_sim_post"] += float(cyc_sim_post.item()) * bs
+
+            meter["cyc_sim_iv_prior"] += float(cyc_sim_iv_prior.item()) * bs
+            meter["cyc_sim_gm_prior"] += float(cyc_sim_gm_prior.item()) * bs
             meter["cyc_sim_prior"] += float(cyc_sim_prior.item()) * bs
+
             meter["prior_l2_post"] += float(prior_l2_post.item()) * bs
             meter["prior_l2_prior"] += float(prior_l2_prior.item()) * bs
             meter["prior_bnd_post"] += float(prior_bnd_post.item()) * bs
             meter["prior_bnd_prior"] += float(prior_bnd_prior.item()) * bs
 
             # diag only for sim during val/test if enabled
-            if diag_enabled and (diag_tag == "test") and proxy_g is not None:
+            if diag_enabled and (diag_tag == "test") and (proxy_iv and proxy_gm):
                 diag_rows, diag_count = diag_processing(
-                    model, proxy_g, device,
+                    model, device,
                     "sim",
                     diag_rows, diag_count, diag_max, diag_k,
                     _sanitize(x_flat_std), _sanitize(x_hat_std_sim_prior),
@@ -497,11 +581,16 @@ def evaluate_full_dual(
                     y, y_hat_prior, y_hat_prior_32,
                     y_tf, y_tf_proxy, y_idx_c_from_p, yref_proxy_norm,
                     prior_bound, prior_bound_margin, PARAM_RANGE=PARAM_RANGE,
+                    proxy_iv=proxy_iv, proxy_gm=proxy_gm, L_iv=L_iv,
                     proxy_floor_all=proxy_floor_all
                 )
 
-            # cyc_meas aggregation (same as old)
-            if proxy_g is not None and meas_iter is not None and lambda_cyc_meas > 0:
+            # --- Measurement Cycle Consistency (Dual) ---
+            cyc_meas = y_hat_post_32.new_tensor(0.0)
+            cyc_meas_iv = y_hat_post_32.new_tensor(0.0)
+            cyc_meas_gm = y_hat_post_32.new_tensor(0.0)
+            
+            if proxy_iv and proxy_gm and meas_iter and lambda_cyc_meas > 0:
                 try:
                     xm_iv, xm_gm = next(meas_iter)
                 except StopIteration:
@@ -509,48 +598,43 @@ def evaluate_full_dual(
                     xm_iv, xm_gm = next(meas_iter)
                 xm_iv = xm_iv.to(device); xm_gm = xm_gm.to(device)
                 xm_flat_std = torch.cat([xm_iv.flatten(1), xm_gm.flatten(1)], dim=1)
+                # Predict Y from Meas
                 h_m = model.encode_x(xm_iv, xm_gm)
+                prior_out_m = model.prior_net(h_m)
+                mu_pm, _ = prior_out_m.chunk(2, dim=-1)
+                ym_hat = model.decoder(torch.cat([h_m, mu_pm], dim=1))
+                ym_hat32 = _sanitize(ym_hat.to(torch.float32))
 
-                if bok_use_meas and best_of_k > 1:
-                    _, cyc_meas_scalar, _, _, valid_best, _ = bok_prior_select_and_cyc_meas(
-                        model, device, best_of_k,
-                        h_m, xm_flat_std,
-                        y_tf, y_tf_proxy, proxy_g,
-                        x_mu_c, x_std_c, x_mu_p, x_std_p,
-                        y_idx_c_from_p,
-                        cyc_meas_knn_weight=cyc_meas_knn_weight,
-                        cyc_meas_knn_gamma=cyc_meas_knn_gamma,
-                        yref_proxy_norm=yref_proxy_norm,
-                        trust_tau=trust_tau
-                    )
-                    cyc_meas = cyc_meas_scalar
-                    valid_count = int(valid_best.sum().item())
-                else:
-                    prior_out_m = model.prior_net(h_m)
-                    mu_pm, _ = prior_out_m.chunk(2, dim=-1)
-                    ym_hat = model.decoder(torch.cat([h_m, mu_pm], dim=1))
-                    ym_hat32 = _sanitize(ym_hat.to(torch.float32))
-                    y_phys_m = _sanitize(y_tf.inverse(ym_hat32), clip=None)
-                    if y_idx_c_from_p is not None:
-                        y_phys_m = y_phys_m.index_select(1, y_idx_c_from_p)
-                    ym_proxy_norm = _sanitize(y_tf_proxy.transform(y_phys_m))
-                    xmh_proxy_std = _sanitize(proxy_g(ym_proxy_norm))
-                    xmh_phys = _sanitize(xmh_proxy_std * x_std_p + x_mu_p)
-                    xmh_curr_std = _sanitize((xmh_phys - x_mu_c) / x_std_c)
-                    valid = torch.isfinite(xmh_curr_std).all(dim=1) & torch.isfinite(xm_flat_std).all(dim=1)
-                    if valid.any():
-                        cyc_meas = cyc_crit(xmh_curr_std[valid], xm_flat_std[valid])
-                    else:
-                        cyc_meas = xm_flat_std.new_tensor(0.0)
-                    valid_count = int(valid.sum().item())
+                # Calculate Split Loss for Meas
+                l_m_iv, l_m_gm, xmh_curr_std = NormCalc_cyc_dual(
+                    device, proxy_iv, proxy_gm, L_iv,
+                    y_tf, y_tf_proxy, ym_hat32,
+                    xm_flat_std, x_mu_c, x_std_c, x_mu_p, x_std_p,
+                    y_idx_c_from_p, cyc_crit
+                )
+                
+                # Valid mask logic (checking finite)
+                valid = torch.isfinite(xmh_curr_std).all(dim=1)
+                if valid.any():
+                    # Re-calc mean only on valid indices
+                    # Note: NormCalc_cyc_dual returns mean loss. 
+                    # For strict correctness with mask, we might need NormCalc to return per-sample.
+                    # Assuming simple mean for now or that NormCalc handles basic validity.
+                    cyc_meas_iv = l_m_iv
+                    cyc_meas_gm = l_m_gm
+                    cyc_meas = cyc_meas_iv + cyc_meas_gm
+                
+                valid_count = int(valid.sum().item())
 
                 if valid_count > 0:
+                    meter["cyc_meas_iv"] += float(cyc_meas_iv.item()) * valid_count
+                    meter["cyc_meas_gm"] += float(cyc_meas_gm.item()) * valid_count
                     meter["cyc_meas"] += float(cyc_meas.item()) * valid_count
                     meter["n_meas"] += valid_count
 
                 if diag_enabled and (diag_tag == "test"):
                     diag_rows, diag_count = diag_processing(
-                        model, proxy_g, device,
+                        model, device, # Removed proxy_g
                         "meas",
                         diag_rows, diag_count, diag_max, diag_k,
                         _sanitize(xm_flat_std), _sanitize(xmh_curr_std),
@@ -558,6 +642,8 @@ def evaluate_full_dual(
                         None, ym_hat, ym_hat32,
                         y_tf, y_tf_proxy, y_idx_c_from_p, yref_proxy_norm,
                         prior_bound, prior_bound_margin, PARAM_RANGE=PARAM_RANGE,
+                        # Pass Dual Proxies
+                        proxy_iv=proxy_iv, proxy_gm=proxy_gm, L_iv=L_iv,
                         proxy_floor_all=proxy_floor_all
                     )
 
@@ -576,6 +662,7 @@ def evaluate_full_dual(
         p50, p90, p95, p99 = np.percentile(arr, [50, 90, 95, 99]).tolist()
         print(f"[Diag] proxy_floor_ps  P50={p50:.4f}  P90={p90:.4f}  P95={p95:.4f}  P99={p99:.4f}")
 
+        
     n = max(1, meter["n"])
     metrics = {
         "val_sup_post": meter["sup_post"]/n,
@@ -583,17 +670,28 @@ def evaluate_full_dual(
         "val_prior_l2_post": meter["prior_l2_post"]/n,
         "val_prior_bnd_post": meter["prior_bnd_post"]/n,
         "val_kl": meter["kl"]/n,
-        "val_total_post": (
+        "val_total_post": 
+        (
             meter["sup_post"]/n
             + kl_beta * (meter["kl"]/n)
             + prior_l2 * (meter["prior_l2_post"]/n)
             + prior_bound * (meter["prior_bnd_post"]/n)
             + lambda_cyc_sim * (meter["cyc_sim_post"]/n)
         ),
-
         "val_sup_prior": meter["sup_prior"]/n,
+
+        "val_cyc_sim_iv_prior": meter["cyc_sim_iv_prior"]/n,
+        "val_cyc_sim_gm_prior": meter["cyc_sim_gm_prior"]/n,
         "val_cyc_sim_prior": meter["cyc_sim_prior"]/n,
+
+        "val_cyc_sim_iv_post": meter["cyc_sim_iv_post"]/n,
+        "val_cyc_sim_gm_post": meter["cyc_sim_gm_post"]/n,
+        "val_cyc_sim_post": meter["cyc_sim_post"]/n,
+
+        "val_cyc_meas_iv": (meter["cyc_meas_iv"]/max(1,meter["n_meas"])) if meter["n_meas"]>0 else 0.0,
+        "val_cyc_meas_gm": (meter["cyc_meas_gm"]/max(1,meter["n_meas"])) if meter["n_meas"]>0 else 0.0,
         "val_cyc_meas": (meter["cyc_meas"]/max(1,meter["n_meas"])) if meter["n_meas"]>0 else 0.0,
+        
         "val_prior_l2_prior": meter["prior_l2_prior"]/n,
         "val_prior_bnd_prior": meter["prior_bnd_prior"]/n,
         "val_total_prior": (

@@ -94,6 +94,57 @@ def NormCalc_cyc(device, proxy_g, lambda_cyc, y_tf, y_tf_proxy, y_hat_32,
         cyc = cyc_crit(xhat_curr_std, x_flat_std)
     return cyc, xhat_curr_std
 
+def NormCalc_cyc_dual(
+    device, 
+    proxy_iv, proxy_gm, L_iv: int, # Split point
+    y_tf, y_tf_proxy, y_hat_32,
+    x_flat_std, # [B, L_iv + L_gm] (Target)
+    x_mu_c, x_std_c, x_mu_p, x_std_p, # Global stats
+    y_idx_c_from_p, cyc_crit
+):
+    y_hat_32 = _sanitize(y_hat_32)
+    x_flat_std = _sanitize(x_flat_std)
+
+    # 1. Split Target
+    target_iv = x_flat_std[:, :L_iv]
+    target_gm = x_flat_std[:, L_iv:]
+
+    # 2. Prepare Proxy Input
+    y_phys = _sanitize(y_tf.inverse(y_hat_32), clip=None)
+    if y_idx_c_from_p is not None:
+        y_phys = y_phys.index_select(1, y_idx_c_from_p)
+    
+    y_proxy_norm = _sanitize(y_tf_proxy.transform(y_phys))
+
+    # 3. Dual Inference
+    # Note: Proxies predict in their own training distribution (x_std_p)
+    pred_iv_p = _sanitize(proxy_iv(y_proxy_norm))
+    pred_gm_p = _sanitize(proxy_gm(y_proxy_norm))
+
+    # 4. Domain Adaptation (Proxy Space -> Physical -> Current CVAE Space)
+    # Split the global stats vectors
+    mu_p_iv, mu_p_gm = x_mu_p[:L_iv], x_mu_p[L_iv:]
+    std_p_iv, std_p_gm = x_std_p[:L_iv], x_std_p[L_iv:]
+    mu_c_iv, mu_c_gm = x_mu_c[:L_iv], x_mu_c[L_iv:]
+    std_c_iv, std_c_gm = x_std_c[:L_iv], x_std_c[L_iv:]
+
+    # IV Path
+    pred_iv_phys = pred_iv_p * std_p_iv + mu_p_iv
+    pred_iv_curr = _sanitize((pred_iv_phys - mu_c_iv) / std_c_iv)
+
+    # GM Path
+    pred_gm_phys = pred_gm_p * std_p_gm + mu_p_gm
+    pred_gm_curr = _sanitize((pred_gm_phys - mu_c_gm) / std_c_gm)
+
+    # 5. Calculate Split Losses
+    loss_iv = cyc_crit(pred_iv_curr, target_iv)
+    loss_gm = cyc_crit(pred_gm_curr, target_gm)
+
+    # Reconstruct full vector for potential concat usage
+    xhat_curr_std = torch.cat([pred_iv_curr, pred_gm_curr], dim=1)
+
+    return loss_iv, loss_gm, xhat_curr_std
+
 def _smooth_l1_per_sample(diff: torch.Tensor, beta: float = 0.02) -> torch.Tensor:
     absd = diff.abs()
     return torch.where(absd < beta, 0.5*(diff**2)/beta, absd - 0.5*beta).mean(dim=1)
@@ -227,3 +278,89 @@ def bok_prior_select_and_cyc_meas(
         dmin_best = None
 
     return ym_best32, cyc_meas_scalar, xmh_curr_std_best, y_proxy_norm_best, valid_best, dmin_best
+
+
+def bok_prior_select_and_cyc_dual(
+    model, device, K: int,
+    x_feat,                  # [B, H]
+    x_flat_std,              # [B, Xd_concat] Target
+    mu_prior, logvar_prior,  # [B, L]
+    y_tf, y_tf_proxy, 
+    proxy_iv, proxy_gm, L_iv: int, 
+    x_mu_c, x_std_c, x_mu_p, x_std_p,
+    y_idx_c_from_p,
+    cyc_crit,
+):
+    """
+    Best-of-K selection using Dual Proxies (IV + GM).
+    Returns: y_best32, cyc_sim_scalar, x_hat_std_sim_prior_best
+    """
+    B, L = mu_prior.shape
+    # 1. Expand and Sample
+    muK = mu_prior.unsqueeze(1).expand(B, K, L)
+    lvK = logvar_prior.unsqueeze(1).expand(B, K, L)
+    eps = torch.randn_like(muK)
+    zK  = muK + eps * torch.exp(0.5 * lvK)     # [B,K,L]
+    xK  = x_feat.unsqueeze(1).expand(B, K, x_feat.shape[-1]) # [B,K,H]
+
+    # 2. Decode K candidates
+    in_dec = torch.cat([xK.reshape(B*K, -1), zK.reshape(B*K, -1)], dim=1)
+    yK = model.decoder(in_dec)
+    yK32 = _sanitize(yK.to(torch.float32)) # [B*K, Dy]
+
+    # 3. Dual Proxy Inference on all K candidates
+    y_physK = _sanitize(y_tf.inverse(yK32))
+    if y_idx_c_from_p is not None:
+        y_physK = y_physK.index_select(1, y_idx_c_from_p)
+    y_proxy_normK = _sanitize(y_tf_proxy.transform(y_physK))
+
+    pred_iv_pK = _sanitize(proxy_iv(y_proxy_normK)) # [B*K, L_iv]
+    pred_gm_pK = _sanitize(proxy_gm(y_proxy_normK)) # [B*K, L_gm]
+
+    # 4. Domain Adaptation & Concat
+    mu_p_iv, mu_p_gm = x_mu_p[:L_iv], x_mu_p[L_iv:]
+    std_p_iv, std_p_gm = x_std_p[:L_iv], x_std_p[L_iv:]
+    mu_c_iv, mu_c_gm = x_mu_c[:L_iv], x_mu_c[L_iv:]
+    std_c_iv, std_c_gm = x_std_c[:L_iv], x_std_c[L_iv:]
+
+    # IV Path
+    pred_iv_physK = pred_iv_pK * std_p_iv + mu_p_iv
+    pred_iv_currK = _sanitize((pred_iv_physK - mu_c_iv) / std_c_iv)
+    
+    # GM Path
+    pred_gm_physK = pred_gm_pK * std_p_gm + mu_p_gm
+    pred_gm_currK = _sanitize((pred_gm_physK - mu_c_gm) / std_c_gm)
+
+    # Combined reconstruction [B*K, L_iv+L_gm]
+    xhat_curr_stdK = torch.cat([pred_iv_currK, pred_gm_currK], dim=1)
+
+    # 5. Calculate Selection Error (SmoothL1 per sample)
+    x_ref = _sanitize(x_flat_std.unsqueeze(1).expand(B, K, x_flat_std.shape[-1]).reshape(B*K, -1))
+    valid = torch.isfinite(xhat_curr_stdK).all(dim=1) & torch.isfinite(x_ref).all(dim=1)
+    diff = xhat_curr_stdK - x_ref
+    
+    # Calculate error across the WHOLE curve (IV + GM)
+    ps = _smooth_l1_per_sample(diff, beta=0.02)
+    ps = torch.where(valid, ps, torch.full_like(ps, 1e9))
+
+    # 6. Select Best
+    cyc_mat = ps.view(B, K)
+    best_idx = torch.argmin(cyc_mat, dim=1)
+    
+    # Gather best Y
+    Dy = yK32.shape[-1]
+    y_best32 = yK32.view(B, K, Dy).gather(1, best_idx.view(B,1,1).expand(-1,1,Dy)).squeeze(1)
+    
+    # Gather best reconstruction (for diag/logging)
+    Xd = xhat_curr_stdK.shape[-1]
+    x_hat_std_sim_prior_best = xhat_curr_stdK.view(B, K, Xd).gather(1, best_idx.view(B,1,1).expand(-1,1,Xd)).squeeze(1)
+
+    # 7. Recalculate Split Loss for the winner (to return scalar loss)
+    # We could reuse `ps` but that's combined. NormCalc_cyc_dual returns split losses, 
+    # but here we return a scalar total cyc_sim for backwards compat, or use NormCalc inside loop.
+    # To keep Training loop consistent, we let Training loop call NormCalc_cyc_dual on y_best32.
+    # But wait, the function signature usually returns (y_best, cyc_loss, x_recon).
+    
+    cyc_sim_scalar = ps.view(B,K).gather(1, best_idx.view(B,1)).mean()
+
+    return y_best32, cyc_sim_scalar, x_hat_std_sim_prior_best

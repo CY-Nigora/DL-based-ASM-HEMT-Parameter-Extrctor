@@ -219,6 +219,14 @@ def make_meas_loader_dual(meas_h5: str, x_scaler: XStandardizer, batch_size: int
     Nm = Xm_iv.shape[0]
     if Nm == 0:
         return None, 0
+    
+    # === FIX: Duplicate data if only 1 sample to avoid BatchNorm Error ===
+    if Nm == 1:
+        print("[Data] Warning: Single measurement sample detected. Duplicating to N=2 for BatchNorm compatibility.")
+        Xm_iv = np.repeat(Xm_iv, 2, axis=0)
+        Xm_gm = np.repeat(Xm_gm, 2, axis=0)
+        Nm = 2
+    # ===================================================================
 
     Xm_concat = np.concatenate([Xm_iv.reshape(Nm,-1), Xm_gm.reshape(Nm,-1)], axis=1).astype(np.float32)
     Xm_std = x_scaler.transform(Xm_concat)
@@ -229,6 +237,9 @@ def make_meas_loader_dual(meas_h5: str, x_scaler: XStandardizer, batch_size: int
 
     ds = DualMeasDataset(Xm_iv_std, Xm_gm_std)
     bs = min(batch_size, Nm)
+    
+    # === FIX: drop_last=True ensures we never output a remaining batch of size 1 ===
     loader = DataLoader(ds, batch_size=bs, shuffle=True, num_workers=num_workers,
-                        pin_memory=True, drop_last=False)
+                        pin_memory=True, drop_last=True) 
+    
     return loader, Nm

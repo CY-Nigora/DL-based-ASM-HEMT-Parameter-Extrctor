@@ -9,11 +9,11 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from data import (
-    load_and_prepare_dual, make_loaders, make_meas_loader_dual,
+    load_and_prepare_dual, make_loaders, make_meas_loader_dual, 
     XStandardizer, YTransform, choose_log_mask
 )
 from models import DualInputCVAE
-from proxy import train_proxy_g, load_proxy_artifacts
+from proxy import train_proxy_g, load_dual_proxy_artifacts
 from training import train_one_epoch_dual, evaluate_full_dual
 from utils import _setup_print_tee, add_hparams_safe, _bok_flags, dropout_mode
 
@@ -140,7 +140,7 @@ def save_state(outdir: str, x_scaler: XStandardizer, y_tf: YTransform, cfg: Trai
         'input_meta': meta
     }
     if proxy_meta is not None:
-        dd['proxy'] = proxy_meta['proxy']
+        dd['proxy'] = proxy_meta
     # print("DEBUG save_state hidden =", cfg.hidden, file=sys.stderr, flush=True)
     with open(os.path.join(outdir, 'transforms.json'), 'w') as f:
         json.dump(dd, f, indent=2)
@@ -164,49 +164,71 @@ def _apply_aug_schedule(ds, epoch: int, cfg: TrainConfig):
     ds.set_aug_scale(float(s))
 
 
-def run_proxy_only(cfg: TrainConfig, device):
+def run_dual_proxy_training(cfg: TrainConfig, device):
+    """
+    Trains IV and GM proxies separately.
+    """
     set_seed(cfg.seed)
     train_ds, val_ds, test_ds, x_scaler, y_tf, splits, X_all, Y_all, meta = \
         load_and_prepare_dual(cfg.data, cfg, PARAM_NAMES, PARAM_RANGE)
     tr_idx, va_idx, _ = splits
+    L_iv = meta['L_iv']
 
+    # 1. Prepare Standardized Data for Proxy
+    # We use a NEW scaler for proxy based on training data
     x_scaler_p = XStandardizer(); x_scaler_p.fit(X_all[tr_idx])
-    X_tr_std_p = x_scaler_p.transform(X_all[tr_idx])
-    X_va_std_p = x_scaler_p.transform(X_all[va_idx])
+    X_tr_std_all = x_scaler_p.transform(X_all[tr_idx])
+    X_va_std_all = x_scaler_p.transform(X_all[va_idx])
 
+    # Split into IV and GM components
+    X_tr_iv = X_tr_std_all[:, :L_iv]; X_tr_gm = X_tr_std_all[:, L_iv:]
+    X_va_iv = X_va_std_all[:, :L_iv]; X_va_gm = X_va_std_all[:, L_iv:]
+
+    # Y Transform
     y_tf_p = YTransform(PARAM_NAMES, choose_log_mask(PARAM_RANGE, PARAM_NAMES))
     y_tf_p.fit(torch.from_numpy(Y_all[tr_idx]))
-    Y_tr_norm_p = y_tf_p.transform(torch.from_numpy(Y_all[tr_idx])).numpy()
-    Y_va_norm_p = y_tf_p.transform(torch.from_numpy(Y_all[va_idx])).numpy()
+    Y_tr_norm = y_tf_p.transform(torch.from_numpy(Y_all[tr_idx])).numpy()
+    Y_va_norm = y_tf_p.transform(torch.from_numpy(Y_all[va_idx])).numpy()
 
+    # Output Dir
     stamp = time.strftime('%Y%m%d-%H%M%S')
-    run_dir = os.path.join(cfg.outdir, f'proxy_run_{stamp}')
+    run_dir = os.path.join(cfg.outdir, f'proxy_dual_{stamp}')
     os.makedirs(run_dir, exist_ok=True)
-    _setup_print_tee(run_dir, "proxy.log")
+    _setup_print_tee(run_dir, "proxy_dual.log")
 
-    save_state(run_dir, x_scaler_p, y_tf_p, cfg, meta)
-    np.save(os.path.join(run_dir, 'proxy_Ytr_norm.npy'), Y_tr_norm_p)
+    # Save shared meta
+    meta_json = {
+        'proxy_x_scaler': x_scaler_p.state_dict(),
+        'proxy_y_transform': y_tf_p.state_dict(),
+        'proxy_config': asdict(cfg) # save full config
+    }
+    with open(os.path.join(run_dir, 'transforms.json'), 'w') as f:
+        json.dump(meta_json, f, indent=2)
 
-    proxy_g, pt_path, ts_path, proxy_cfg = train_proxy_g(
-        X_tr_std_p, Y_tr_norm_p, X_va_std_p, Y_va_norm_p,
-        device, run_dir,
-        hidden=cfg.proxy_hidden, max_epochs=cfg.proxy_epochs,
-        lr=cfg.proxy_lr, weight_decay=cfg.proxy_wd,
-        beta=cfg.proxy_beta, seed=cfg.proxy_seed,
-        patience=cfg.proxy_patience, min_delta=cfg.proxy_min_delta,
-        batch_size=cfg.proxy_batch_size
+    np.save(os.path.join(run_dir, 'proxy_Ytr_norm.npy'), Y_tr_norm)
+    print(f"[Info] Saved proxy_Ytr_norm.npy to {run_dir}")
+
+    # 2. Train IV Proxy
+    print(">>> Training Proxy IV...")
+    _, path_iv, _, _ = train_proxy_g(
+        X_tr_iv, Y_tr_norm, X_va_iv, Y_va_norm, device, run_dir,
+        hidden=cfg.proxy_hidden, max_epochs=cfg.proxy_epochs, lr=cfg.proxy_lr,
+        weight_decay=cfg.proxy_wd, beta=cfg.proxy_beta, patience=cfg.proxy_patience
     )
+    os.replace(path_iv, os.path.join(run_dir, 'proxy_iv.pt'))
 
-    files = {'proxy_g.pt': os.path.basename(pt_path), 'proxy_g.ts': os.path.basename(ts_path)}
-    with open(os.path.join(run_dir,'transforms.json'),'r') as f: meta_js = json.load(f)
-    meta_js.update({'proxy': {
-        'arch': 'mlp', 'in_dim': Y_tr_norm_p.shape[1], 'out_dim': X_tr_std_p.shape[1],
-        'hidden': list(cfg.proxy_hidden), 'format': 'torchscript', 'files': files
-    }})
-    with open(os.path.join(run_dir,'transforms.json'),'w') as f: json.dump(meta_js,f,indent=2)
+    # 3. Train GM Proxy
+    print(">>> Training Proxy GM...")
+    _, path_gm, _, _ = train_proxy_g(
+        X_tr_gm, Y_tr_norm, X_va_gm, Y_va_norm, device, run_dir,
+        hidden=cfg.proxy_hidden, max_epochs=cfg.proxy_epochs, lr=cfg.proxy_lr,
+        weight_decay=cfg.proxy_wd, beta=cfg.proxy_beta, patience=cfg.proxy_patience
+    )
+    os.replace(path_gm, os.path.join(run_dir, 'proxy_gm.pt'))
 
-    print(f"[ProxyOnly] Saved to: {run_dir}")
+    print(f"[ProxyDual] Finished. Artifacts saved to {run_dir}")
     return {'run_dir': run_dir}
+
 
 
 def run_once(cfg: TrainConfig, diag_cfg: dict, device):
@@ -241,49 +263,70 @@ def run_once(cfg: TrainConfig, diag_cfg: dict, device):
                                                iv_shape=meta["iv_shape"], gm_shape=meta["gm_shape"])
 
     # Proxy setup
-    proxy_g, x_scaler_p, y_tf_p = None, None, None
-    proxy_meta = None
+    L_iv = meta['L_iv'] # Important: Get split point
+    proxy_iv, proxy_gm = None, None
+    x_mu_p, x_std_p, y_tf_proxy, y_idx_c_from_p = None, None, None, None
+
     if (cfg.lambda_cyc_sim > 0.0 or cfg.lambda_cyc_meas > 0.0):
         if cfg.proxy_run:
-            proxy_g, x_scaler_p, y_tf_p, proxy_meta = load_proxy_artifacts(cfg.proxy_run, device)
+            print(f"[Info] Loading dual proxies from {cfg.proxy_run}")
+            proxy_iv, proxy_gm, x_scaler_p, y_tf_p, _ = load_dual_proxy_artifacts(cfg.proxy_run, device)
         elif cfg.auto_train_proxy:
-            print("[Info] Auto-training proxy model.")
+            print("[Info] Auto-training dual proxies inside CVAE session...")
+            # (Reuse logic from run_dual_proxy_training, but keep variables in memory)
+            # 1. Fit scalers on current splits
             tr_idx, va_idx, _ = splits
             x_scaler_p = XStandardizer(); x_scaler_p.fit(X_all[tr_idx])
-            X_tr_std_p = x_scaler_p.transform(X_all[tr_idx]); X_va_std_p = x_scaler_p.transform(X_all[va_idx])
+            X_tr_all = x_scaler_p.transform(X_all[tr_idx]); X_va_all = x_scaler_p.transform(X_all[va_idx])
+            X_tr_iv = X_tr_all[:, :L_iv]; X_tr_gm = X_tr_all[:, L_iv:]
+            X_va_iv = X_va_all[:, :L_iv]; X_va_gm = X_va_all[:, L_iv:]
+            
             y_tf_p = YTransform(PARAM_NAMES, choose_log_mask(PARAM_RANGE, PARAM_NAMES))
             y_tf_p.fit(torch.from_numpy(Y_all[tr_idx]))
-            Y_tr_norm_p = y_tf_p.transform(torch.from_numpy(Y_all[tr_idx])).numpy()
-            Y_va_norm_p = y_tf_p.transform(torch.from_numpy(Y_all[va_idx])).numpy()
-            np.save(os.path.join(run_dir, 'proxy_Ytr_norm.npy'), Y_tr_norm_p)
-
-            proxy_g_eager, pt_path, ts_path, proxy_cfg = train_proxy_g(
-                X_tr_std_p, Y_tr_norm_p, X_va_std_p, Y_va_norm_p, device, run_dir,
-                hidden=cfg.proxy_hidden, max_epochs=cfg.proxy_epochs,
-                lr=cfg.proxy_lr, weight_decay=cfg.proxy_wd,
-                beta=cfg.proxy_beta, seed=cfg.proxy_seed,
-                patience=cfg.proxy_patience, min_delta=cfg.proxy_min_delta,
-                batch_size=cfg.proxy_batch_size
+            Y_tr_n = y_tf_p.transform(torch.from_numpy(Y_all[tr_idx])).numpy()
+            Y_va_n = y_tf_p.transform(torch.from_numpy(Y_all[va_idx])).numpy()
+            
+            # 2. Train IV
+            model_iv, path_iv, _, _ = train_proxy_g(
+                X_tr_iv, Y_tr_n, X_va_iv, Y_va_n, device, run_dir,
+                hidden=cfg.proxy_hidden, max_epochs=cfg.proxy_epochs, lr=cfg.proxy_lr
             )
-            try:
-                proxy_g = torch.jit.load(ts_path, map_location=device).eval()
-            except Exception as e:
-                print(f"[Warn] Failed to load scripted proxy, using eager: {e}")
-                proxy_g = proxy_g_eager
+            os.replace(path_iv, os.path.join(run_dir, 'proxy_iv.pt'))
+            proxy_iv = model_iv
+            
+            # 3. Train GM
+            model_gm, path_gm, _, _ = train_proxy_g(
+                X_tr_gm, Y_tr_n, X_va_gm, Y_va_n, device, run_dir,
+                hidden=cfg.proxy_hidden, max_epochs=cfg.proxy_epochs, lr=cfg.proxy_lr
+            )
+            os.replace(path_gm, os.path.join(run_dir, 'proxy_gm.pt'))
+            proxy_gm = model_gm
+            
+            # Save proxy meta
+            proxy_meta = {'proxy_x_scaler': x_scaler_p.state_dict(),
+                           'proxy_y_transform': y_tf_p.state_dict()}
+            # (Call save_state with this meta)
 
-            proxy_meta = {
-                'proxy_x_scaler': x_scaler_p.state_dict(),
-                'proxy_y_transform': y_tf_p.state_dict(),
-                'proxy': proxy_cfg
-            }
+        # Prepare Global Params for Regulations
+        if proxy_iv and proxy_gm:
+            x_mu_p = torch.tensor(x_scaler_p.mean, device=device, dtype=torch.float32)
+            x_std_p = torch.tensor(x_scaler_p.std, device=device, dtype=torch.float32)
+            y_tf_proxy = y_tf_p
+            # Index mapping logic remains same
+            name2idx_curr = {n: i for i, n in enumerate(y_tf.names)}
+            idx_list = [name2idx_curr[n] for n in y_tf_proxy.names]
+            y_idx_c_from_p = torch.tensor(idx_list, device=device, dtype=torch.long)
             
     # print("DEBUG run once", cfg.hidden, file=sys.stderr, flush=True)
+    proxy_meta = {'proxy_x_scaler': x_scaler_p.state_dict(),
+                'proxy_y_transform': y_tf_p.state_dict()}
     save_state(run_dir, x_scaler, y_tf, cfg, meta, proxy_meta)
 
     x_mu_c  = torch.tensor(x_scaler.mean, device=device, dtype=torch.float32)
     x_std_c = torch.tensor(x_scaler.std,  device=device, dtype=torch.float32)
     x_mu_p, x_std_p, y_tf_proxy, y_idx_c_from_p = None, None, None, None
-    if proxy_g:
+
+    if proxy_iv and proxy_gm:
         x_mu_p = torch.tensor(x_scaler_p.mean, device=device, dtype=torch.float32)
         x_std_p = torch.tensor(x_scaler_p.std, device=device, dtype=torch.float32)
         y_tf_proxy = y_tf_p
@@ -292,7 +335,7 @@ def run_once(cfg: TrainConfig, diag_cfg: dict, device):
         y_idx_c_from_p = torch.tensor(idx_list, device=device, dtype=torch.long)
 
     yref_proxy_norm = None
-    if (proxy_g and (cfg.trust_alpha > 0.0 or cfg.trust_alpha_meas > 0.0)):
+    if (proxy_iv and proxy_gm and (cfg.trust_alpha > 0.0 or cfg.trust_alpha_meas > 0.0)):
         probe_path = os.path.join(cfg.proxy_run or run_dir, 'proxy_Ytr_norm.npy')
         if os.path.isfile(probe_path):
             arr = np.load(probe_path).astype(np.float32)
@@ -317,7 +360,8 @@ def run_once(cfg: TrainConfig, diag_cfg: dict, device):
             model, train_loader, optimizer, scaler, device,
             scheduler=scheduler, current_epoch=epoch, onecycle_epochs=cfg.onecycle_epochs,
             kl_beta=cfg.kl_beta, y_tf=y_tf, PARAM_RANGE=PARAM_RANGE,
-            proxy_g=proxy_g, lambda_cyc_sim=cfg.lambda_cyc_sim,
+            proxy_iv=proxy_iv, proxy_gm=proxy_gm, L_iv=L_iv,
+            lambda_cyc_sim=cfg.lambda_cyc_sim,
             meas_loader=meas_loader, lambda_cyc_meas=lam_meas,
             y_tf_proxy=y_tf_proxy, x_mu_c=x_mu_c, x_std_c=x_std_c, x_mu_p=x_mu_p, x_std_p=x_std_p,
             y_idx_c_from_p=y_idx_c_from_p, sup_weight=cfg.sup_weight,
@@ -333,7 +377,9 @@ def run_once(cfg: TrainConfig, diag_cfg: dict, device):
         K_eff_val, use_bok_sim_val, use_bok_meas_val = _bok_flags(cfg, phase='val', epoch=epoch)
         val_metrics = evaluate_full_dual(
             model, val_loader, device,
-            y_tf=y_tf, proxy_g=proxy_g, lambda_cyc_sim=cfg.lambda_cyc_sim,
+            y_tf=y_tf,
+            proxy_iv=proxy_iv, proxy_gm=proxy_gm, L_iv=L_iv,
+            lambda_cyc_sim=cfg.lambda_cyc_sim,
             meas_loader=meas_loader, lambda_cyc_meas=lam_meas,
             y_tf_proxy=y_tf_proxy, x_mu_c=x_mu_c, x_std_c=x_std_c, x_mu_p=x_mu_p, x_std_p=x_std_p,
             y_idx_c_from_p=y_idx_c_from_p,
@@ -358,9 +404,10 @@ def run_once(cfg: TrainConfig, diag_cfg: dict, device):
         print(f" >> Epoch {epoch:03d} | Train Total={train_metrics['total']:.4f} "
               f"| Val post/prior Total={val_metrics['val_total_post']:.4f}/{val_metrics['val_total_prior']:.4f}, "
               f"Recon post/prior={val_metrics['val_sup_post']:.4f}/{val_metrics['val_sup_prior']:.4f}, KL={val_metrics['val_kl']:.4f}, "
-              f"CycSim post/prior={val_metrics['val_cyc_sim_post']:.4f}/{val_metrics['val_cyc_sim_prior']:.4f}, "
-              f"CycMeas={val_metrics['val_cyc_meas']:.4f}, "
-              f"PriorBnd post/prior={val_metrics['val_prior_bnd_post']:.2e}/{val_metrics['val_prior_bnd_prior']:.2e} | "
+              f"| CycSim post total/iv/gm={val_metrics['val_cyc_sim_post']:.4f}/{val_metrics['val_cyc_sim_iv_post']:.4f}/{val_metrics['val_cyc_sim_gm_post']:.4f}, "
+              f"| CycSim prior total/iv/gm={val_metrics['val_cyc_sim_prior']:.4f}/{val_metrics['val_cyc_sim_iv_prior']:.4f}/{val_metrics['val_cyc_sim_gm_prior']:.4f}, "
+              f"| CycMeas total/iv/gm={val_metrics['val_cyc_meas']:.4f}/{val_metrics['val_cyc_meas_iv']:.4f}/{val_metrics['val_cyc_meas_gm']:.4f}, "
+              f"| PriorBnd post/prior={val_metrics['val_prior_bnd_post']:.2e}/{val_metrics['val_prior_bnd_prior']:.2e} | "
               f"Best {best_val:.4f} | Patience {no_improve+1}/{cfg.patience}")
 
         es_value = val_metrics.get(cfg.es_metric, val_metrics['val_total_post'])
@@ -382,7 +429,9 @@ def run_once(cfg: TrainConfig, diag_cfg: dict, device):
     K_eff_test, use_bok_sim_test, use_bok_meas_test = _bok_flags(cfg, phase='test', epoch=epoch)
     test_metrics = evaluate_full_dual(
         model, test_loader, device,
-        y_tf=y_tf, proxy_g=proxy_g, lambda_cyc_sim=cfg.lambda_cyc_sim,
+        y_tf=y_tf, 
+        proxy_iv=proxy_iv, proxy_gm=proxy_gm, L_iv=L_iv,
+        lambda_cyc_sim=cfg.lambda_cyc_sim,
         meas_loader=meas_loader, lambda_cyc_meas=cfg.lambda_cyc_meas,
         y_tf_proxy=y_tf_proxy, x_mu_c=x_mu_c, x_std_c=x_std_c, x_mu_p=x_mu_p, x_std_p=x_std_p,
         y_idx_c_from_p=y_idx_c_from_p,
@@ -656,7 +705,7 @@ def main():
     if args.train_proxy_only:
         if cfg.data is None:
             raise SystemExit("ArgumentError: '--data' is required for --train-proxy-only.")
-        run_proxy_only(cfg, device)
+        run_dual_proxy_training(cfg, device)
         return
 
     if args.infer_run:

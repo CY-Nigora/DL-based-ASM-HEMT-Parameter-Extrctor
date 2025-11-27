@@ -154,37 +154,36 @@ def train_proxy_g(X_tr_std: np.ndarray, Y_tr_norm: np.ndarray,
         _update_transforms_meta(outdir, proxy_meta)
         return model, best_path, ts_path, proxy_meta['proxy']
 
-def load_proxy_artifacts(run_dir: str, device):
+
+def load_dual_proxy_artifacts(run_dir: str, device):
     tr_path = os.path.join(run_dir, 'transforms.json')
-    ts_path = os.path.join(run_dir, 'proxy_g.ts')
-    pt_path = os.path.join(run_dir, 'proxy_g.pt')
-    assert os.path.isfile(tr_path), f"transforms.json not found in {run_dir}"
+    pt_iv = os.path.join(run_dir, 'proxy_iv.pt')
+    pt_gm = os.path.join(run_dir, 'proxy_gm.pt')
+    
+    assert os.path.isfile(tr_path), f"transforms.json missing in {run_dir}"
+    assert os.path.isfile(pt_iv), f"proxy_iv.pt missing in {run_dir}"
+    assert os.path.isfile(pt_gm), f"proxy_gm.pt missing in {run_dir}"
 
     with open(tr_path, 'r') as f:
         meta = json.load(f)
 
-    # backward-compatible keys
+    # Load Scalers (Shared)
     xs_key = 'proxy_x_scaler' if 'proxy_x_scaler' in meta else 'x_scaler'
     yt_key = 'proxy_y_transform' if 'proxy_y_transform' in meta else 'y_transform'
-
     x_scaler = XStandardizer.from_state_dict(meta[xs_key])
     y_tf     = YTransform.from_state_dict(meta[yt_key])
 
+    # Helper to load one model
+    def _load(path):
+        ck = torch.load(path, map_location=device)
+        in_dim, out_dim = int(ck['in_dim']), int(ck['out_dim'])
+        hidden = ck.get('hidden', [512,512])
+        m = ProxyMLP(in_dim, out_dim, list(hidden)).to(device)
+        m.load_state_dict(ck['model'])
+        m.eval()
+        return m
 
-    if os.path.isfile(ts_path):
-        proxy = torch.jit.load(ts_path, map_location=device)
-        try: proxy.to(device)
-        except Exception: pass
-        proxy.eval()
-        return proxy, x_scaler, y_tf, meta
-
-    if os.path.isfile(pt_path):
-        ck = torch.load(pt_path, map_location=device)
-        in_dim  = int(ck['in_dim']); out_dim = int(ck['out_dim'])
-        hidden  = ck.get('hidden', [512,512])
-        proxy = ProxyMLP(in_dim, out_dim, list(hidden)).to(device)
-        proxy.load_state_dict(ck['model'])
-        proxy.eval()
-        return proxy, x_scaler, y_tf, meta
-
-    raise FileNotFoundError("proxy artifacts not found")
+    p_iv = _load(pt_iv)
+    p_gm = _load(pt_gm)
+    
+    return p_iv, p_gm, x_scaler, y_tf, meta
