@@ -1,0 +1,9 @@
+{
+  "hparams": {
+    "tag": "final_mlp"
+  },
+  "metrics": {
+    "val_total_post": 0.41850190728460135,
+    "val_sup_post": 0.41850190728460135
+  }
+}

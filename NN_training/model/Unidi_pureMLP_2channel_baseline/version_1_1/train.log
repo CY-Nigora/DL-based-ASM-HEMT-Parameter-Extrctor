@@ -1,0 +1,360 @@
+[log] tee initialized at 2025-12-15 20:15:31 -> temp_Unidi_pureMLP_2channel\mlp_20251215-201531\train.log
+E:\personal_Data\Document of School\Uni Stuttgart\Masterarbeit\Code\param_regression\ADS_Parameter_Fitting\IV_param_regression\NN_training\code\training\pure_MLP_Unidi\training.py:40: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(device.type=='cuda')):
+ >> Epoch 001/300 | Train Loss=0.748864 | Val Loss=0.665112 | Best inf | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 002/300 | Train Loss=0.683966 | Val Loss=0.633361 | Best 0.665112 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 003/300 | Train Loss=0.659720 | Val Loss=0.618586 | Best 0.633361 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 004/300 | Train Loss=0.642981 | Val Loss=0.596668 | Best 0.618586 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 005/300 | Train Loss=0.630217 | Val Loss=0.586347 | Best 0.596668 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 006/300 | Train Loss=0.620450 | Val Loss=0.578436 | Best 0.586347 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 007/300 | Train Loss=0.611048 | Val Loss=0.582290 | Best 0.578436 | Patience 0/100
+ >> Epoch 008/300 | Train Loss=0.603890 | Val Loss=0.561825 | Best 0.578436 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 009/300 | Train Loss=0.597901 | Val Loss=0.557185 | Best 0.561825 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 010/300 | Train Loss=0.592424 | Val Loss=0.558150 | Best 0.557185 | Patience 0/100
+ >> Epoch 011/300 | Train Loss=0.587151 | Val Loss=0.551846 | Best 0.557185 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 012/300 | Train Loss=0.583048 | Val Loss=0.546119 | Best 0.551846 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 013/300 | Train Loss=0.578945 | Val Loss=0.544099 | Best 0.546119 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 014/300 | Train Loss=0.575945 | Val Loss=0.545399 | Best 0.544099 | Patience 0/100
+ >> Epoch 015/300 | Train Loss=0.572624 | Val Loss=0.536842 | Best 0.544099 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 016/300 | Train Loss=0.570211 | Val Loss=0.533602 | Best 0.536842 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 017/300 | Train Loss=0.567361 | Val Loss=0.537157 | Best 0.533602 | Patience 0/100
+ >> Epoch 018/300 | Train Loss=0.564744 | Val Loss=0.541808 | Best 0.533602 | Patience 1/100
+ >> Epoch 019/300 | Train Loss=0.562581 | Val Loss=0.544172 | Best 0.533602 | Patience 2/100
+ >> Epoch 020/300 | Train Loss=0.560502 | Val Loss=0.528762 | Best 0.533602 | Patience 3/100
+[Update] New best model saved.
+ >> Epoch 021/300 | Train Loss=0.558213 | Val Loss=0.528949 | Best 0.528762 | Patience 0/100
+ >> Epoch 022/300 | Train Loss=0.556754 | Val Loss=0.536636 | Best 0.528762 | Patience 1/100
+ >> Epoch 023/300 | Train Loss=0.554935 | Val Loss=0.532233 | Best 0.528762 | Patience 2/100
+ >> Epoch 024/300 | Train Loss=0.553635 | Val Loss=0.526816 | Best 0.528762 | Patience 3/100
+[Update] New best model saved.
+ >> Epoch 025/300 | Train Loss=0.551958 | Val Loss=0.526254 | Best 0.526816 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 026/300 | Train Loss=0.551074 | Val Loss=0.535947 | Best 0.526254 | Patience 0/100
+ >> Epoch 027/300 | Train Loss=0.549944 | Val Loss=0.545046 | Best 0.526254 | Patience 1/100
+ >> Epoch 028/300 | Train Loss=0.548269 | Val Loss=0.532563 | Best 0.526254 | Patience 2/100
+ >> Epoch 029/300 | Train Loss=0.547350 | Val Loss=0.525052 | Best 0.526254 | Patience 3/100
+[Update] New best model saved.
+ >> Epoch 030/300 | Train Loss=0.546433 | Val Loss=0.528812 | Best 0.525052 | Patience 0/100
+ >> Epoch 031/300 | Train Loss=0.545614 | Val Loss=0.519738 | Best 0.525052 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 032/300 | Train Loss=0.544126 | Val Loss=0.525196 | Best 0.519738 | Patience 0/100
+ >> Epoch 033/300 | Train Loss=0.543165 | Val Loss=0.539734 | Best 0.519738 | Patience 1/100
+ >> Epoch 034/300 | Train Loss=0.542097 | Val Loss=0.517533 | Best 0.519738 | Patience 2/100
+[Update] New best model saved.
+ >> Epoch 035/300 | Train Loss=0.540947 | Val Loss=0.514697 | Best 0.517533 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 036/300 | Train Loss=0.540277 | Val Loss=0.523321 | Best 0.514697 | Patience 0/100
+ >> Epoch 037/300 | Train Loss=0.539574 | Val Loss=0.510546 | Best 0.514697 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 038/300 | Train Loss=0.538474 | Val Loss=0.518405 | Best 0.510546 | Patience 0/100
+ >> Epoch 039/300 | Train Loss=0.538279 | Val Loss=0.536960 | Best 0.510546 | Patience 1/100
+ >> Epoch 040/300 | Train Loss=0.536557 | Val Loss=0.521116 | Best 0.510546 | Patience 2/100
+ >> Epoch 041/300 | Train Loss=0.536025 | Val Loss=0.520687 | Best 0.510546 | Patience 3/100
+ >> Epoch 042/300 | Train Loss=0.534777 | Val Loss=0.516808 | Best 0.510546 | Patience 4/100
+ >> Epoch 043/300 | Train Loss=0.534476 | Val Loss=0.523877 | Best 0.510546 | Patience 5/100
+ >> Epoch 044/300 | Train Loss=0.533535 | Val Loss=0.523153 | Best 0.510546 | Patience 6/100
+ >> Epoch 045/300 | Train Loss=0.532623 | Val Loss=0.524054 | Best 0.510546 | Patience 7/100
+ >> Epoch 046/300 | Train Loss=0.531351 | Val Loss=0.534986 | Best 0.510546 | Patience 8/100
+ >> Epoch 047/300 | Train Loss=0.531214 | Val Loss=0.517972 | Best 0.510546 | Patience 9/100
+ >> Epoch 048/300 | Train Loss=0.529963 | Val Loss=0.523341 | Best 0.510546 | Patience 10/100
+ >> Epoch 049/300 | Train Loss=0.528958 | Val Loss=0.521829 | Best 0.510546 | Patience 11/100
+ >> Epoch 050/300 | Train Loss=0.528599 | Val Loss=0.533250 | Best 0.510546 | Patience 12/100
+ >> Epoch 051/300 | Train Loss=0.527181 | Val Loss=0.504014 | Best 0.510546 | Patience 13/100
+[Update] New best model saved.
+ >> Epoch 052/300 | Train Loss=0.526757 | Val Loss=0.511470 | Best 0.504014 | Patience 0/100
+ >> Epoch 053/300 | Train Loss=0.526198 | Val Loss=0.533553 | Best 0.504014 | Patience 1/100
+ >> Epoch 054/300 | Train Loss=0.525471 | Val Loss=0.513462 | Best 0.504014 | Patience 2/100
+ >> Epoch 055/300 | Train Loss=0.524547 | Val Loss=0.524261 | Best 0.504014 | Patience 3/100
+ >> Epoch 056/300 | Train Loss=0.523581 | Val Loss=0.513820 | Best 0.504014 | Patience 4/100
+ >> Epoch 057/300 | Train Loss=0.522860 | Val Loss=0.520151 | Best 0.504014 | Patience 5/100
+ >> Epoch 058/300 | Train Loss=0.522009 | Val Loss=0.538133 | Best 0.504014 | Patience 6/100
+ >> Epoch 059/300 | Train Loss=0.520560 | Val Loss=0.509192 | Best 0.504014 | Patience 7/100
+ >> Epoch 060/300 | Train Loss=0.520290 | Val Loss=0.507141 | Best 0.504014 | Patience 8/100
+ >> Epoch 061/300 | Train Loss=0.519515 | Val Loss=0.504476 | Best 0.504014 | Patience 9/100
+ >> Epoch 062/300 | Train Loss=0.518864 | Val Loss=0.503547 | Best 0.504014 | Patience 10/100
+[Update] New best model saved.
+ >> Epoch 063/300 | Train Loss=0.517868 | Val Loss=0.510082 | Best 0.503547 | Patience 0/100
+ >> Epoch 064/300 | Train Loss=0.517563 | Val Loss=0.515697 | Best 0.503547 | Patience 1/100
+ >> Epoch 065/300 | Train Loss=0.515968 | Val Loss=0.503540 | Best 0.503547 | Patience 2/100
+[Update] New best model saved.
+ >> Epoch 066/300 | Train Loss=0.515520 | Val Loss=0.499872 | Best 0.503540 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 067/300 | Train Loss=0.514871 | Val Loss=0.493987 | Best 0.499872 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 068/300 | Train Loss=0.513948 | Val Loss=0.508342 | Best 0.493987 | Patience 0/100
+ >> Epoch 069/300 | Train Loss=0.513421 | Val Loss=0.495044 | Best 0.493987 | Patience 1/100
+ >> Epoch 070/300 | Train Loss=0.512496 | Val Loss=0.499092 | Best 0.493987 | Patience 2/100
+ >> Epoch 071/300 | Train Loss=0.511494 | Val Loss=0.491573 | Best 0.493987 | Patience 3/100
+[Update] New best model saved.
+ >> Epoch 072/300 | Train Loss=0.510810 | Val Loss=0.509567 | Best 0.491573 | Patience 0/100
+ >> Epoch 073/300 | Train Loss=0.510391 | Val Loss=0.503646 | Best 0.491573 | Patience 1/100
+ >> Epoch 074/300 | Train Loss=0.509381 | Val Loss=0.500301 | Best 0.491573 | Patience 2/100
+ >> Epoch 075/300 | Train Loss=0.508468 | Val Loss=0.508801 | Best 0.491573 | Patience 3/100
+ >> Epoch 076/300 | Train Loss=0.507838 | Val Loss=0.490319 | Best 0.491573 | Patience 4/100
+[Update] New best model saved.
+ >> Epoch 077/300 | Train Loss=0.506963 | Val Loss=0.503279 | Best 0.490319 | Patience 0/100
+ >> Epoch 078/300 | Train Loss=0.506331 | Val Loss=0.507712 | Best 0.490319 | Patience 1/100
+ >> Epoch 079/300 | Train Loss=0.505718 | Val Loss=0.501347 | Best 0.490319 | Patience 2/100
+ >> Epoch 080/300 | Train Loss=0.504672 | Val Loss=0.499762 | Best 0.490319 | Patience 3/100
+ >> Epoch 081/300 | Train Loss=0.504095 | Val Loss=0.501989 | Best 0.490319 | Patience 4/100
+ >> Epoch 082/300 | Train Loss=0.503162 | Val Loss=0.491927 | Best 0.490319 | Patience 5/100
+ >> Epoch 083/300 | Train Loss=0.502487 | Val Loss=0.499196 | Best 0.490319 | Patience 6/100
+ >> Epoch 084/300 | Train Loss=0.501641 | Val Loss=0.484797 | Best 0.490319 | Patience 7/100
+[Update] New best model saved.
+ >> Epoch 085/300 | Train Loss=0.500818 | Val Loss=0.490452 | Best 0.484797 | Patience 0/100
+ >> Epoch 086/300 | Train Loss=0.500056 | Val Loss=0.493217 | Best 0.484797 | Patience 1/100
+ >> Epoch 087/300 | Train Loss=0.499317 | Val Loss=0.490851 | Best 0.484797 | Patience 2/100
+ >> Epoch 088/300 | Train Loss=0.498952 | Val Loss=0.506164 | Best 0.484797 | Patience 3/100
+ >> Epoch 089/300 | Train Loss=0.497295 | Val Loss=0.506297 | Best 0.484797 | Patience 4/100
+ >> Epoch 090/300 | Train Loss=0.497234 | Val Loss=0.482609 | Best 0.484797 | Patience 5/100
+[Update] New best model saved.
+ >> Epoch 091/300 | Train Loss=0.496036 | Val Loss=0.487053 | Best 0.482609 | Patience 0/100
+ >> Epoch 092/300 | Train Loss=0.495710 | Val Loss=0.480469 | Best 0.482609 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 093/300 | Train Loss=0.494929 | Val Loss=0.475544 | Best 0.480469 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 094/300 | Train Loss=0.494257 | Val Loss=0.486213 | Best 0.475544 | Patience 0/100
+ >> Epoch 095/300 | Train Loss=0.493362 | Val Loss=0.477458 | Best 0.475544 | Patience 1/100
+ >> Epoch 096/300 | Train Loss=0.492666 | Val Loss=0.488084 | Best 0.475544 | Patience 2/100
+ >> Epoch 097/300 | Train Loss=0.492085 | Val Loss=0.481485 | Best 0.475544 | Patience 3/100
+ >> Epoch 098/300 | Train Loss=0.491673 | Val Loss=0.483566 | Best 0.475544 | Patience 4/100
+ >> Epoch 099/300 | Train Loss=0.490715 | Val Loss=0.488699 | Best 0.475544 | Patience 5/100
+ >> Epoch 100/300 | Train Loss=0.489797 | Val Loss=0.483162 | Best 0.475544 | Patience 6/100
+ >> Epoch 101/300 | Train Loss=0.489401 | Val Loss=0.478289 | Best 0.475544 | Patience 7/100
+ >> Epoch 102/300 | Train Loss=0.488808 | Val Loss=0.476395 | Best 0.475544 | Patience 8/100
+ >> Epoch 103/300 | Train Loss=0.488717 | Val Loss=0.474556 | Best 0.475544 | Patience 9/100
+[Update] New best model saved.
+ >> Epoch 104/300 | Train Loss=0.487551 | Val Loss=0.487847 | Best 0.474556 | Patience 0/100
+ >> Epoch 105/300 | Train Loss=0.486594 | Val Loss=0.484827 | Best 0.474556 | Patience 1/100
+ >> Epoch 106/300 | Train Loss=0.486482 | Val Loss=0.476355 | Best 0.474556 | Patience 2/100
+ >> Epoch 107/300 | Train Loss=0.485960 | Val Loss=0.473105 | Best 0.474556 | Patience 3/100
+[Update] New best model saved.
+ >> Epoch 108/300 | Train Loss=0.485218 | Val Loss=0.491255 | Best 0.473105 | Patience 0/100
+ >> Epoch 109/300 | Train Loss=0.484848 | Val Loss=0.473923 | Best 0.473105 | Patience 1/100
+ >> Epoch 110/300 | Train Loss=0.484117 | Val Loss=0.476345 | Best 0.473105 | Patience 2/100
+ >> Epoch 111/300 | Train Loss=0.483342 | Val Loss=0.466752 | Best 0.473105 | Patience 3/100
+[Update] New best model saved.
+ >> Epoch 112/300 | Train Loss=0.482786 | Val Loss=0.469134 | Best 0.466752 | Patience 0/100
+ >> Epoch 113/300 | Train Loss=0.482075 | Val Loss=0.482696 | Best 0.466752 | Patience 1/100
+ >> Epoch 114/300 | Train Loss=0.481947 | Val Loss=0.484553 | Best 0.466752 | Patience 2/100
+ >> Epoch 115/300 | Train Loss=0.480926 | Val Loss=0.470185 | Best 0.466752 | Patience 3/100
+ >> Epoch 116/300 | Train Loss=0.480819 | Val Loss=0.475586 | Best 0.466752 | Patience 4/100
+ >> Epoch 117/300 | Train Loss=0.480265 | Val Loss=0.474269 | Best 0.466752 | Patience 5/100
+ >> Epoch 118/300 | Train Loss=0.479736 | Val Loss=0.475421 | Best 0.466752 | Patience 6/100
+ >> Epoch 119/300 | Train Loss=0.479205 | Val Loss=0.461558 | Best 0.466752 | Patience 7/100
+[Update] New best model saved.
+ >> Epoch 120/300 | Train Loss=0.478715 | Val Loss=0.473911 | Best 0.461558 | Patience 0/100
+ >> Epoch 121/300 | Train Loss=0.478084 | Val Loss=0.468676 | Best 0.461558 | Patience 1/100
+ >> Epoch 122/300 | Train Loss=0.477451 | Val Loss=0.475201 | Best 0.461558 | Patience 2/100
+ >> Epoch 123/300 | Train Loss=0.477210 | Val Loss=0.469999 | Best 0.461558 | Patience 3/100
+ >> Epoch 124/300 | Train Loss=0.476576 | Val Loss=0.477203 | Best 0.461558 | Patience 4/100
+ >> Epoch 125/300 | Train Loss=0.475945 | Val Loss=0.450644 | Best 0.461558 | Patience 5/100
+[Update] New best model saved.
+ >> Epoch 126/300 | Train Loss=0.475364 | Val Loss=0.480896 | Best 0.450644 | Patience 0/100
+ >> Epoch 127/300 | Train Loss=0.474927 | Val Loss=0.460630 | Best 0.450644 | Patience 1/100
+ >> Epoch 128/300 | Train Loss=0.474732 | Val Loss=0.474640 | Best 0.450644 | Patience 2/100
+ >> Epoch 129/300 | Train Loss=0.474190 | Val Loss=0.462751 | Best 0.450644 | Patience 3/100
+ >> Epoch 130/300 | Train Loss=0.473794 | Val Loss=0.456155 | Best 0.450644 | Patience 4/100
+ >> Epoch 131/300 | Train Loss=0.473254 | Val Loss=0.480944 | Best 0.450644 | Patience 5/100
+ >> Epoch 132/300 | Train Loss=0.472486 | Val Loss=0.457139 | Best 0.450644 | Patience 6/100
+ >> Epoch 133/300 | Train Loss=0.472171 | Val Loss=0.461722 | Best 0.450644 | Patience 7/100
+ >> Epoch 134/300 | Train Loss=0.471558 | Val Loss=0.452024 | Best 0.450644 | Patience 8/100
+ >> Epoch 135/300 | Train Loss=0.471072 | Val Loss=0.466108 | Best 0.450644 | Patience 9/100
+ >> Epoch 136/300 | Train Loss=0.471072 | Val Loss=0.456732 | Best 0.450644 | Patience 10/100
+ >> Epoch 137/300 | Train Loss=0.470274 | Val Loss=0.474139 | Best 0.450644 | Patience 11/100
+ >> Epoch 138/300 | Train Loss=0.469710 | Val Loss=0.458968 | Best 0.450644 | Patience 12/100
+ >> Epoch 139/300 | Train Loss=0.469609 | Val Loss=0.456259 | Best 0.450644 | Patience 13/100
+ >> Epoch 140/300 | Train Loss=0.468736 | Val Loss=0.466845 | Best 0.450644 | Patience 14/100
+ >> Epoch 141/300 | Train Loss=0.468706 | Val Loss=0.460884 | Best 0.450644 | Patience 15/100
+ >> Epoch 142/300 | Train Loss=0.468072 | Val Loss=0.456034 | Best 0.450644 | Patience 16/100
+ >> Epoch 143/300 | Train Loss=0.467687 | Val Loss=0.462271 | Best 0.450644 | Patience 17/100
+ >> Epoch 144/300 | Train Loss=0.467594 | Val Loss=0.470144 | Best 0.450644 | Patience 18/100
+ >> Epoch 145/300 | Train Loss=0.466860 | Val Loss=0.470681 | Best 0.450644 | Patience 19/100
+ >> Epoch 146/300 | Train Loss=0.466802 | Val Loss=0.463551 | Best 0.450644 | Patience 20/100
+ >> Epoch 147/300 | Train Loss=0.465888 | Val Loss=0.453611 | Best 0.450644 | Patience 21/100
+ >> Epoch 148/300 | Train Loss=0.465668 | Val Loss=0.451817 | Best 0.450644 | Patience 22/100
+ >> Epoch 149/300 | Train Loss=0.464837 | Val Loss=0.459996 | Best 0.450644 | Patience 23/100
+ >> Epoch 150/300 | Train Loss=0.464549 | Val Loss=0.465979 | Best 0.450644 | Patience 24/100
+ >> Epoch 151/300 | Train Loss=0.464158 | Val Loss=0.457675 | Best 0.450644 | Patience 25/100
+ >> Epoch 152/300 | Train Loss=0.464083 | Val Loss=0.457835 | Best 0.450644 | Patience 26/100
+ >> Epoch 153/300 | Train Loss=0.463510 | Val Loss=0.461749 | Best 0.450644 | Patience 27/100
+ >> Epoch 154/300 | Train Loss=0.462734 | Val Loss=0.468432 | Best 0.450644 | Patience 28/100
+ >> Epoch 155/300 | Train Loss=0.462730 | Val Loss=0.460095 | Best 0.450644 | Patience 29/100
+ >> Epoch 156/300 | Train Loss=0.462207 | Val Loss=0.451987 | Best 0.450644 | Patience 30/100
+ >> Epoch 157/300 | Train Loss=0.461482 | Val Loss=0.459067 | Best 0.450644 | Patience 31/100
+ >> Epoch 158/300 | Train Loss=0.461640 | Val Loss=0.454025 | Best 0.450644 | Patience 32/100
+ >> Epoch 159/300 | Train Loss=0.460973 | Val Loss=0.454770 | Best 0.450644 | Patience 33/100
+ >> Epoch 160/300 | Train Loss=0.460780 | Val Loss=0.449642 | Best 0.450644 | Patience 34/100
+[Update] New best model saved.
+ >> Epoch 161/300 | Train Loss=0.460262 | Val Loss=0.454200 | Best 0.449642 | Patience 0/100
+ >> Epoch 162/300 | Train Loss=0.459583 | Val Loss=0.453823 | Best 0.449642 | Patience 1/100
+ >> Epoch 163/300 | Train Loss=0.459634 | Val Loss=0.442646 | Best 0.449642 | Patience 2/100
+[Update] New best model saved.
+ >> Epoch 164/300 | Train Loss=0.458852 | Val Loss=0.454463 | Best 0.442646 | Patience 0/100
+ >> Epoch 165/300 | Train Loss=0.458748 | Val Loss=0.450792 | Best 0.442646 | Patience 1/100
+ >> Epoch 166/300 | Train Loss=0.457946 | Val Loss=0.450681 | Best 0.442646 | Patience 2/100
+ >> Epoch 167/300 | Train Loss=0.458115 | Val Loss=0.462524 | Best 0.442646 | Patience 3/100
+ >> Epoch 168/300 | Train Loss=0.457307 | Val Loss=0.455001 | Best 0.442646 | Patience 4/100
+ >> Epoch 169/300 | Train Loss=0.456978 | Val Loss=0.456112 | Best 0.442646 | Patience 5/100
+ >> Epoch 170/300 | Train Loss=0.456653 | Val Loss=0.464214 | Best 0.442646 | Patience 6/100
+ >> Epoch 171/300 | Train Loss=0.456115 | Val Loss=0.450075 | Best 0.442646 | Patience 7/100
+ >> Epoch 172/300 | Train Loss=0.455636 | Val Loss=0.444932 | Best 0.442646 | Patience 8/100
+ >> Epoch 173/300 | Train Loss=0.454864 | Val Loss=0.441197 | Best 0.442646 | Patience 9/100
+[Update] New best model saved.
+ >> Epoch 174/300 | Train Loss=0.454582 | Val Loss=0.447383 | Best 0.441197 | Patience 0/100
+ >> Epoch 175/300 | Train Loss=0.454642 | Val Loss=0.447334 | Best 0.441197 | Patience 1/100
+ >> Epoch 176/300 | Train Loss=0.454133 | Val Loss=0.452540 | Best 0.441197 | Patience 2/100
+ >> Epoch 177/300 | Train Loss=0.453137 | Val Loss=0.446336 | Best 0.441197 | Patience 3/100
+ >> Epoch 178/300 | Train Loss=0.453379 | Val Loss=0.438850 | Best 0.441197 | Patience 4/100
+[Update] New best model saved.
+ >> Epoch 179/300 | Train Loss=0.453240 | Val Loss=0.444579 | Best 0.438850 | Patience 0/100
+ >> Epoch 180/300 | Train Loss=0.452608 | Val Loss=0.452266 | Best 0.438850 | Patience 1/100
+ >> Epoch 181/300 | Train Loss=0.452507 | Val Loss=0.441431 | Best 0.438850 | Patience 2/100
+ >> Epoch 182/300 | Train Loss=0.451979 | Val Loss=0.441550 | Best 0.438850 | Patience 3/100
+ >> Epoch 183/300 | Train Loss=0.451467 | Val Loss=0.453420 | Best 0.438850 | Patience 4/100
+ >> Epoch 184/300 | Train Loss=0.451201 | Val Loss=0.456462 | Best 0.438850 | Patience 5/100
+ >> Epoch 185/300 | Train Loss=0.451000 | Val Loss=0.444981 | Best 0.438850 | Patience 6/100
+ >> Epoch 186/300 | Train Loss=0.450351 | Val Loss=0.444269 | Best 0.438850 | Patience 7/100
+ >> Epoch 187/300 | Train Loss=0.449782 | Val Loss=0.444366 | Best 0.438850 | Patience 8/100
+ >> Epoch 188/300 | Train Loss=0.448943 | Val Loss=0.444626 | Best 0.438850 | Patience 9/100
+ >> Epoch 189/300 | Train Loss=0.449002 | Val Loss=0.441588 | Best 0.438850 | Patience 10/100
+ >> Epoch 190/300 | Train Loss=0.449163 | Val Loss=0.437423 | Best 0.438850 | Patience 11/100
+[Update] New best model saved.
+ >> Epoch 191/300 | Train Loss=0.448504 | Val Loss=0.442845 | Best 0.437423 | Patience 0/100
+ >> Epoch 192/300 | Train Loss=0.448486 | Val Loss=0.446013 | Best 0.437423 | Patience 1/100
+ >> Epoch 193/300 | Train Loss=0.447823 | Val Loss=0.432865 | Best 0.437423 | Patience 2/100
+[Update] New best model saved.
+ >> Epoch 194/300 | Train Loss=0.447266 | Val Loss=0.442101 | Best 0.432865 | Patience 0/100
+ >> Epoch 195/300 | Train Loss=0.446497 | Val Loss=0.439066 | Best 0.432865 | Patience 1/100
+ >> Epoch 196/300 | Train Loss=0.446246 | Val Loss=0.446870 | Best 0.432865 | Patience 2/100
+ >> Epoch 197/300 | Train Loss=0.446491 | Val Loss=0.450678 | Best 0.432865 | Patience 3/100
+ >> Epoch 198/300 | Train Loss=0.445982 | Val Loss=0.433297 | Best 0.432865 | Patience 4/100
+ >> Epoch 199/300 | Train Loss=0.445533 | Val Loss=0.434966 | Best 0.432865 | Patience 5/100
+ >> Epoch 200/300 | Train Loss=0.444910 | Val Loss=0.435739 | Best 0.432865 | Patience 6/100
+ >> Epoch 201/300 | Train Loss=0.444722 | Val Loss=0.443153 | Best 0.432865 | Patience 7/100
+ >> Epoch 202/300 | Train Loss=0.444393 | Val Loss=0.443904 | Best 0.432865 | Patience 8/100
+ >> Epoch 203/300 | Train Loss=0.444105 | Val Loss=0.441998 | Best 0.432865 | Patience 9/100
+ >> Epoch 204/300 | Train Loss=0.443727 | Val Loss=0.440816 | Best 0.432865 | Patience 10/100
+ >> Epoch 205/300 | Train Loss=0.443544 | Val Loss=0.442918 | Best 0.432865 | Patience 11/100
+ >> Epoch 206/300 | Train Loss=0.443105 | Val Loss=0.452163 | Best 0.432865 | Patience 12/100
+ >> Epoch 207/300 | Train Loss=0.442952 | Val Loss=0.446168 | Best 0.432865 | Patience 13/100
+ >> Epoch 208/300 | Train Loss=0.442378 | Val Loss=0.431855 | Best 0.432865 | Patience 14/100
+[Update] New best model saved.
+ >> Epoch 209/300 | Train Loss=0.442142 | Val Loss=0.438757 | Best 0.431855 | Patience 0/100
+ >> Epoch 210/300 | Train Loss=0.441770 | Val Loss=0.432271 | Best 0.431855 | Patience 1/100
+ >> Epoch 211/300 | Train Loss=0.441545 | Val Loss=0.445788 | Best 0.431855 | Patience 2/100
+ >> Epoch 212/300 | Train Loss=0.441296 | Val Loss=0.441300 | Best 0.431855 | Patience 3/100
+ >> Epoch 213/300 | Train Loss=0.440891 | Val Loss=0.438183 | Best 0.431855 | Patience 4/100
+ >> Epoch 214/300 | Train Loss=0.440312 | Val Loss=0.444219 | Best 0.431855 | Patience 5/100
+ >> Epoch 215/300 | Train Loss=0.440324 | Val Loss=0.436523 | Best 0.431855 | Patience 6/100
+ >> Epoch 216/300 | Train Loss=0.439674 | Val Loss=0.440088 | Best 0.431855 | Patience 7/100
+ >> Epoch 217/300 | Train Loss=0.439671 | Val Loss=0.437057 | Best 0.431855 | Patience 8/100
+ >> Epoch 218/300 | Train Loss=0.439376 | Val Loss=0.432561 | Best 0.431855 | Patience 9/100
+ >> Epoch 219/300 | Train Loss=0.438718 | Val Loss=0.433014 | Best 0.431855 | Patience 10/100
+ >> Epoch 220/300 | Train Loss=0.438404 | Val Loss=0.439397 | Best 0.431855 | Patience 11/100
+ >> Epoch 221/300 | Train Loss=0.438420 | Val Loss=0.437803 | Best 0.431855 | Patience 12/100
+ >> Epoch 222/300 | Train Loss=0.437998 | Val Loss=0.437335 | Best 0.431855 | Patience 13/100
+ >> Epoch 223/300 | Train Loss=0.438164 | Val Loss=0.433461 | Best 0.431855 | Patience 14/100
+ >> Epoch 224/300 | Train Loss=0.437472 | Val Loss=0.430770 | Best 0.431855 | Patience 15/100
+[Update] New best model saved.
+ >> Epoch 225/300 | Train Loss=0.437351 | Val Loss=0.432701 | Best 0.430770 | Patience 0/100
+ >> Epoch 226/300 | Train Loss=0.436592 | Val Loss=0.435322 | Best 0.430770 | Patience 1/100
+ >> Epoch 227/300 | Train Loss=0.436619 | Val Loss=0.431043 | Best 0.430770 | Patience 2/100
+ >> Epoch 228/300 | Train Loss=0.436375 | Val Loss=0.432296 | Best 0.430770 | Patience 3/100
+ >> Epoch 229/300 | Train Loss=0.436150 | Val Loss=0.439222 | Best 0.430770 | Patience 4/100
+ >> Epoch 230/300 | Train Loss=0.435492 | Val Loss=0.429640 | Best 0.430770 | Patience 5/100
+[Update] New best model saved.
+ >> Epoch 231/300 | Train Loss=0.435167 | Val Loss=0.428210 | Best 0.429640 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 232/300 | Train Loss=0.435304 | Val Loss=0.427942 | Best 0.428210 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 233/300 | Train Loss=0.434876 | Val Loss=0.437582 | Best 0.427942 | Patience 0/100
+ >> Epoch 234/300 | Train Loss=0.434550 | Val Loss=0.435499 | Best 0.427942 | Patience 1/100
+ >> Epoch 235/300 | Train Loss=0.434843 | Val Loss=0.429569 | Best 0.427942 | Patience 2/100
+ >> Epoch 236/300 | Train Loss=0.434049 | Val Loss=0.439019 | Best 0.427942 | Patience 3/100
+ >> Epoch 237/300 | Train Loss=0.433581 | Val Loss=0.431353 | Best 0.427942 | Patience 4/100
+ >> Epoch 238/300 | Train Loss=0.433825 | Val Loss=0.434363 | Best 0.427942 | Patience 5/100
+ >> Epoch 239/300 | Train Loss=0.433232 | Val Loss=0.429591 | Best 0.427942 | Patience 6/100
+ >> Epoch 240/300 | Train Loss=0.432858 | Val Loss=0.428400 | Best 0.427942 | Patience 7/100
+ >> Epoch 241/300 | Train Loss=0.432953 | Val Loss=0.428892 | Best 0.427942 | Patience 8/100
+ >> Epoch 242/300 | Train Loss=0.432943 | Val Loss=0.431779 | Best 0.427942 | Patience 9/100
+ >> Epoch 243/300 | Train Loss=0.432283 | Val Loss=0.436153 | Best 0.427942 | Patience 10/100
+ >> Epoch 244/300 | Train Loss=0.432373 | Val Loss=0.426110 | Best 0.427942 | Patience 11/100
+[Update] New best model saved.
+ >> Epoch 245/300 | Train Loss=0.431533 | Val Loss=0.431408 | Best 0.426110 | Patience 0/100
+ >> Epoch 246/300 | Train Loss=0.431776 | Val Loss=0.424142 | Best 0.426110 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 247/300 | Train Loss=0.431273 | Val Loss=0.426778 | Best 0.424142 | Patience 0/100
+ >> Epoch 248/300 | Train Loss=0.430999 | Val Loss=0.429787 | Best 0.424142 | Patience 1/100
+ >> Epoch 249/300 | Train Loss=0.431028 | Val Loss=0.424779 | Best 0.424142 | Patience 2/100
+ >> Epoch 250/300 | Train Loss=0.430952 | Val Loss=0.434676 | Best 0.424142 | Patience 3/100
+ >> Epoch 251/300 | Train Loss=0.430718 | Val Loss=0.431330 | Best 0.424142 | Patience 4/100
+ >> Epoch 252/300 | Train Loss=0.430577 | Val Loss=0.429863 | Best 0.424142 | Patience 5/100
+ >> Epoch 253/300 | Train Loss=0.430210 | Val Loss=0.429836 | Best 0.424142 | Patience 6/100
+ >> Epoch 254/300 | Train Loss=0.429899 | Val Loss=0.425245 | Best 0.424142 | Patience 7/100
+ >> Epoch 255/300 | Train Loss=0.429977 | Val Loss=0.433000 | Best 0.424142 | Patience 8/100
+ >> Epoch 256/300 | Train Loss=0.429385 | Val Loss=0.424661 | Best 0.424142 | Patience 9/100
+ >> Epoch 257/300 | Train Loss=0.429515 | Val Loss=0.431773 | Best 0.424142 | Patience 10/100
+ >> Epoch 258/300 | Train Loss=0.429141 | Val Loss=0.428581 | Best 0.424142 | Patience 11/100
+ >> Epoch 259/300 | Train Loss=0.428893 | Val Loss=0.426684 | Best 0.424142 | Patience 12/100
+ >> Epoch 260/300 | Train Loss=0.429254 | Val Loss=0.427507 | Best 0.424142 | Patience 13/100
+ >> Epoch 261/300 | Train Loss=0.428772 | Val Loss=0.436070 | Best 0.424142 | Patience 14/100
+ >> Epoch 262/300 | Train Loss=0.428320 | Val Loss=0.423862 | Best 0.424142 | Patience 15/100
+[Update] New best model saved.
+ >> Epoch 263/300 | Train Loss=0.428508 | Val Loss=0.424611 | Best 0.423862 | Patience 0/100
+ >> Epoch 264/300 | Train Loss=0.428221 | Val Loss=0.431508 | Best 0.423862 | Patience 1/100
+ >> Epoch 265/300 | Train Loss=0.428013 | Val Loss=0.427594 | Best 0.423862 | Patience 2/100
+ >> Epoch 266/300 | Train Loss=0.427938 | Val Loss=0.429141 | Best 0.423862 | Patience 3/100
+ >> Epoch 267/300 | Train Loss=0.427859 | Val Loss=0.427121 | Best 0.423862 | Patience 4/100
+ >> Epoch 268/300 | Train Loss=0.427640 | Val Loss=0.424870 | Best 0.423862 | Patience 5/100
+ >> Epoch 269/300 | Train Loss=0.427492 | Val Loss=0.427024 | Best 0.423862 | Patience 6/100
+ >> Epoch 270/300 | Train Loss=0.427449 | Val Loss=0.426062 | Best 0.423862 | Patience 7/100
+ >> Epoch 271/300 | Train Loss=0.427442 | Val Loss=0.429460 | Best 0.423862 | Patience 8/100
+ >> Epoch 272/300 | Train Loss=0.427147 | Val Loss=0.424670 | Best 0.423862 | Patience 9/100
+ >> Epoch 273/300 | Train Loss=0.427009 | Val Loss=0.422708 | Best 0.423862 | Patience 10/100
+[Update] New best model saved.
+ >> Epoch 274/300 | Train Loss=0.427189 | Val Loss=0.425011 | Best 0.422708 | Patience 0/100
+ >> Epoch 275/300 | Train Loss=0.426924 | Val Loss=0.420562 | Best 0.422708 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 276/300 | Train Loss=0.426989 | Val Loss=0.421339 | Best 0.420562 | Patience 0/100
+ >> Epoch 277/300 | Train Loss=0.426505 | Val Loss=0.419943 | Best 0.420562 | Patience 1/100
+[Update] New best model saved.
+ >> Epoch 278/300 | Train Loss=0.426819 | Val Loss=0.418610 | Best 0.419943 | Patience 0/100
+[Update] New best model saved.
+ >> Epoch 279/300 | Train Loss=0.426684 | Val Loss=0.426899 | Best 0.418610 | Patience 0/100
+ >> Epoch 280/300 | Train Loss=0.426397 | Val Loss=0.421171 | Best 0.418610 | Patience 1/100
+ >> Epoch 281/300 | Train Loss=0.426429 | Val Loss=0.427371 | Best 0.418610 | Patience 2/100
+ >> Epoch 282/300 | Train Loss=0.426350 | Val Loss=0.434182 | Best 0.418610 | Patience 3/100
+ >> Epoch 283/300 | Train Loss=0.426421 | Val Loss=0.423910 | Best 0.418610 | Patience 4/100
+ >> Epoch 284/300 | Train Loss=0.426059 | Val Loss=0.422297 | Best 0.418610 | Patience 5/100
+ >> Epoch 285/300 | Train Loss=0.425980 | Val Loss=0.425442 | Best 0.418610 | Patience 6/100
+ >> Epoch 286/300 | Train Loss=0.426072 | Val Loss=0.432923 | Best 0.418610 | Patience 7/100
+ >> Epoch 287/300 | Train Loss=0.425901 | Val Loss=0.426223 | Best 0.418610 | Patience 8/100
+ >> Epoch 288/300 | Train Loss=0.426048 | Val Loss=0.421759 | Best 0.418610 | Patience 9/100
+ >> Epoch 289/300 | Train Loss=0.425842 | Val Loss=0.422206 | Best 0.418610 | Patience 10/100
+ >> Epoch 290/300 | Train Loss=0.425587 | Val Loss=0.418435 | Best 0.418610 | Patience 11/100
+[Update] New best model saved.
+ >> Epoch 291/300 | Train Loss=0.425657 | Val Loss=0.422078 | Best 0.418435 | Patience 0/100
+ >> Epoch 292/300 | Train Loss=0.425735 | Val Loss=0.421498 | Best 0.418435 | Patience 1/100
+ >> Epoch 293/300 | Train Loss=0.425826 | Val Loss=0.433215 | Best 0.418435 | Patience 2/100
+ >> Epoch 294/300 | Train Loss=0.425766 | Val Loss=0.427317 | Best 0.418435 | Patience 3/100
+ >> Epoch 295/300 | Train Loss=0.425659 | Val Loss=0.421030 | Best 0.418435 | Patience 4/100
+ >> Epoch 296/300 | Train Loss=0.425818 | Val Loss=0.430644 | Best 0.418435 | Patience 5/100
+ >> Epoch 297/300 | Train Loss=0.425495 | Val Loss=0.422514 | Best 0.418435 | Patience 6/100
+ >> Epoch 298/300 | Train Loss=0.426215 | Val Loss=0.422629 | Best 0.418435 | Patience 7/100
+ >> Epoch 299/300 | Train Loss=0.426067 | Val Loss=0.426607 | Best 0.418435 | Patience 8/100
+ >> Epoch 300/300 | Train Loss=0.425794 | Val Loss=0.428239 | Best 0.418435 | Patience 9/100
+[Test] Loss=0.418502

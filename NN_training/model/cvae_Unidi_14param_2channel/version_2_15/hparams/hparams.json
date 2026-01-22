@@ -1,0 +1,27 @@
+{
+  "hparams": {
+    "tag": "final"
+  },
+  "metrics": {
+    "final/test_val_sup_post": 0.8934058445054481,
+    "final/test_val_cyc_sim_post": 0.3216278647725217,
+    "final/test_val_prior_l2_post": 0.5724541189461165,
+    "final/test_val_prior_bnd_post": 0.00028419311993013155,
+    "final/test_val_kl": 0.5086635633665809,
+    "final/test_val_total_post": 4.369743657034616,
+    "final/test_val_sup_prior": 0.8958138248438184,
+    "final/test_val_cyc_sim_iv_prior": 0.14345268640593295,
+    "final/test_val_cyc_sim_gm_prior": 0.18084725597488024,
+    "final/test_val_cyc_sim_prior": 0.3242999425962123,
+    "final/test_val_cyc_sim_iv_post": 0.14064433309720764,
+    "final/test_val_cyc_sim_gm_post": 0.18098353117469682,
+    "final/test_val_phys_sim": 0.0,
+    "final/test_val_phys_meas": 0.0,
+    "final/test_val_cyc_meas_iv": 0.011382950469851494,
+    "final/test_val_cyc_meas_gm": 0.013973642140626907,
+    "final/test_val_cyc_meas": 0.0253565926104784,
+    "final/test_val_prior_l2_prior": 0.6218582176339792,
+    "final/test_val_prior_bnd_prior": 0.00012338183307766652,
+    "final/test_val_total_prior": 4.147568726061659
+  }
+}

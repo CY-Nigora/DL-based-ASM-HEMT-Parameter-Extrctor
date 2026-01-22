@@ -1,0 +1,25 @@
+{
+  "hparams": {
+    "tag": "final"
+  },
+  "metrics": {
+    "final/test_val_sup_post": 0.9248029400310794,
+    "final/test_val_cyc_sim_post": 2.9892607009624683,
+    "final/test_val_prior_l2_post": 0.7629140065202333,
+    "final/test_val_prior_bnd_post": 0.0017354397089745645,
+    "final/test_val_kl": 1.8964149175647609,
+    "final/test_val_total_post": 31.773263902900435,
+    "final/test_val_sup_prior": 0.9318168442225611,
+    "final/test_val_cyc_sim_iv_prior": 2.257342727436911,
+    "final/test_val_cyc_sim_gm_prior": 0.6168468936273255,
+    "final/test_val_cyc_sim_prior": 2.874189637935725,
+    "final/test_val_cyc_sim_iv_post": 2.346334965282928,
+    "final/test_val_cyc_sim_gm_post": 0.6429257255049795,
+    "final/test_val_cyc_meas_iv": 0.304639995098114,
+    "final/test_val_cyc_meas_gm": 0.10473395884037018,
+    "final/test_val_cyc_meas": 0.409373939037323,
+    "final/test_val_prior_l2_prior": 0.7931486070255458,
+    "final/test_val_prior_bnd_prior": 0.0019584318326478513,
+    "final/test_val_total_prior": 29.722601687872125
+  }
+}
