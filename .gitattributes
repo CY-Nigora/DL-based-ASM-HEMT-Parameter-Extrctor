@@ -1,0 +1,44 @@
+*.ckpt filter=lfs diff=lfs merge=lfs -text
+*.npz filter=lfs diff=lfs merge=lfs -text
+*.npy filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.7z filter=lfs diff=lfs merge=lfs -text
+*.h5 filter=lfs diff=lfs merge=lfs -text
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# TensorBoard / training artifacts
+**/events.out.tfevents*
+**/runs*/
+**/run*/
+**/logs*/
+**/checkpoints/
+
+# temp/cache
+**/temp*/
+**/tmp*/
+**/cache*
+
+# If you do NOT want to upload all generated datasets by default (recommended):
+data/**/dataset_process_*.h5
+data/**/noisy_data/*.h5
+
+# If your NN_training/model contains tons of runs, ignore by default, keep only meta
+NN_training/model/**
+!NN_training/model/**/README.md
+!NN_training/model/**/transforms.json
