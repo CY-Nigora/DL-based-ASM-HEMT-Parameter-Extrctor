@@ -67,8 +67,8 @@ Schematic of CNN + CVAE architecture:
 
 ```bash
 ├── NN_training/           # Core Neural Network architectures (CNN, CVAE)
-├── data_gen/              # Scripts for generating data via ADS/Simulation interface
-├── data_gen_pro/          # Advanced data generation with physical constraints
+├── data_gen/              # Scripts for generating data via ADS/Simulation interface (old version, just for reference)
+├── data_gen_pro/          # Advanced data generation with physical constraints (new version for application)
 ├── data_pre_processing/   # Data cleaning, normalization, and H5 packaging
 ├── data_viewer/           # GUI/Scripts for Model performance diagnostic tools
 └── README.md              # Project documentation
