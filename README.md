@@ -85,6 +85,7 @@ git clone https://github.com/CY-Nigora/DL-based-ASM-HEMT-Parameter-Extrctor.git
 ```bash
 pip install -r requirements.txt
 ```
+3. Some additional packages of 3rd party (e.g. external Python interface of ADS) should be manually installed following correspondings tutorials.
 
 ---
 
